@@ -7,11 +7,13 @@ import (
 )
 
 func home(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, `# pipe to cloud
-something | curl -fsS -T - http://%s/pipe
+	fmt.Fprintf(w, `
+# receiver
+curl -s http://%s/pipe
 
-# pipe from cloud
-curl -s http://%s/pipe`, r.Host, r.Host)
+# sender
+echo something | curl -T- http://%s/pipe
+	`, r.Host, r.Host)
 }
 
 type Receiver struct {
@@ -30,8 +32,37 @@ func pipe(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func recv(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Receiver Connected")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	flusher, _ := w.(http.Flusher)
+	receiver := &Receiver{
+		writer:  w,
+		flusher: flusher,
+		done:    make(chan bool),
+	}
+
+	receivers[receiver] = true
+	defer delete(receivers, receiver)
+
+	done := false
+	for done == false {
+		select {
+		// The reciever disconnected themselves
+		case <-w.(http.CloseNotifier).CloseNotify():
+			done = true
+			break
+		// EOF was received on one of the send channels
+		case <-receiver.done:
+			done = true
+			break
+		}
+	}
+	fmt.Println("Receiver Disconnected")
+}
+
 func send(w http.ResponseWriter, r *http.Request) {
-	//r.Body = http.MaxBytesReader(w, r.Body, 5000000) // 10 megabytes
+	r.Body = http.MaxBytesReader(w, r.Body, 5000000) // 5 megabytes
 	fmt.Println("Sender Connected")
 	input := r.Body
 	copy(receivers, input)
@@ -61,33 +92,6 @@ func copy(dst map[*Receiver]bool, src io.Reader) {
 			break
 		}
 	}
-}
-
-func recv(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Receiver Connected")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	flusher, _ := w.(http.Flusher)
-	receiver := &Receiver{
-		writer:  w,
-		flusher: flusher,
-		done:    make(chan bool),
-	}
-
-	receivers[receiver] = true
-
-	done := false
-	for done == false {
-		select {
-		case <-w.(http.CloseNotifier).CloseNotify():
-			done = true
-			break
-		case <-receiver.done:
-			done = true
-			break
-		}
-	}
-	delete(receivers, receiver)
-	fmt.Println("Receiver Disconnected: Notify")
 }
 
 func main() {
