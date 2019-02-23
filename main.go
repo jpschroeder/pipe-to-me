@@ -4,16 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 )
 
 var (
-	debug         = log.New(ioutil.Discard /* os.Stdout */, "[DEBUG]", log.Lshortfile)
-	allReceivers  = MakeMultiWriteCloser()
-	senderCount   = 0
-	receiverCount = 0
+	//debug      = log.New(ioutil.Discard /* os.Stdout */, "[DEBUG]", log.Lshortfile)
+	allReceivers = MakeMultiWriteCloser()
 )
 
 // Hold the information for a single receiver
@@ -122,10 +119,6 @@ func pipe(w http.ResponseWriter, r *http.Request) {
 
 // receive data from any senders
 func recv(w http.ResponseWriter, r *http.Request) {
-	receiverCount++
-	id := receiverCount
-	debug.Println("Receiver Connected: ", id)
-
 	// this is required so that data is streamed back to the client
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
@@ -151,15 +144,10 @@ func recv(w http.ResponseWriter, r *http.Request) {
 			done = true
 		}
 	}
-	debug.Println("Receiver Disconnected: ", id)
 }
 
 // send data to any connected receivers
 func send(w http.ResponseWriter, r *http.Request) {
-	senderCount++
-	id := senderCount
-	debug.Println("Sender Connected: ", id)
-
 	// upload size limit
 	r.Body = http.MaxBytesReader(w, r.Body, 5*1024*1024)
 
@@ -170,7 +158,6 @@ func send(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		allReceivers.Close()
 	}
-	debug.Println("Sender Disconnected: ", id)
 }
 
 func main() {
