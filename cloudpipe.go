@@ -7,11 +7,13 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
 var (
-	//debug      = log.New(ioutil.Discard /* os.Stdout */, "[DEBUG]", log.Lshortfile)
-	allReceivers = MakeReceiverList()
+	//debug      = log.New(os.Stdout /* ioutil.Discard */, "[DEBUG]", log.Lshortfile)
+	allReceivers = MakeAllReceivers()
 )
 
 // Hold the information for a single receiver
@@ -51,7 +53,7 @@ func MakeReceiver(w io.Writer, f http.Flusher) Receiver {
 	}
 }
 
-// Combine multiple writers together
+// A list of receivers that are listening on a pipe
 
 // allow writers to be added an removed dynamically
 type ReceiverList struct {
@@ -66,6 +68,11 @@ func (mw *ReceiverList) Add(w io.WriteCloser) {
 // remove a previously entered writer
 func (mw *ReceiverList) Delete(w io.WriteCloser) {
 	delete(mw.writers, w)
+}
+
+// the number of receivers in the list
+func (mw *ReceiverList) Count() int {
+	return len(mw.writers)
 }
 
 // write the buffer to all registered writers
@@ -89,6 +96,58 @@ func (mw ReceiverList) Close() error {
 func MakeReceiverList() ReceiverList {
 	allWriters := make(map[io.WriteCloser]bool)
 	return ReceiverList{allWriters}
+}
+
+// A map of receiver lists by a key
+
+type AllReceivers struct {
+	receiverLists map[string]ReceiverList
+}
+
+// add a new receiver to a key
+func (ar AllReceivers) Add(key string, receiver Receiver) {
+	receiverlist, exists := ar.receiverLists[key]
+	if !exists {
+		// create the receiver list if it doesn't exist
+		receiverlist = MakeReceiverList()
+		ar.receiverLists[key] = receiverlist
+	}
+	receiverlist.Add(receiver)
+}
+
+// remove a receiver from a key
+func (ar AllReceivers) Delete(key string, receiver Receiver) {
+	receiverlist, exists := ar.receiverLists[key]
+	if !exists {
+		return
+	}
+
+	receiverlist.Delete(receiver)
+	if receiverlist.Count() < 1 {
+		// remove the receiver list from the map if it is empty
+		delete(ar.receiverLists, key)
+	}
+}
+
+// find a receiverlist by a key
+func (ar AllReceivers) Find(key string) (ReceiverList, bool) {
+	receiverList, exists := allReceivers.receiverLists[key]
+	return receiverList, exists
+}
+
+func (ar AllReceivers) String() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%d keys\n", len(ar.receiverLists)))
+	for key, receiverList := range ar.receiverLists {
+		sb.WriteString(fmt.Sprintf("%s : %d\n", key, receiverList.Count()))
+	}
+	return sb.String()
+}
+
+func MakeAllReceivers() AllReceivers {
+	return AllReceivers{
+		receiverLists: make(map[string]ReceiverList),
+	}
 }
 
 // Utilities
@@ -119,64 +178,72 @@ func randASCIIBytes(n int) []byte {
 
 // Handlers
 
-// handler to show basic information on the home page
-func home(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, `
-# create new pipe and receive
-curl -s http://localhost:8080/pipe | curl -K-
-
-# send to pipe
-echo something | curl -T- http://%s/pipe/<key>
-
-# receive from pipe
-curl -s http://%s/pipe/<key>
-
-# both
-cloud() { test -t 0 && curl -s http://%s/pipe || curl -T- http://%s/pipe; }
-	`, r.Host, r.Host, r.Host, r.Host)
-}
+var keyPath = regexp.MustCompile("^/([a-z0-9]+)$")
 
 // send or receive based on http method
-func pipe(w http.ResponseWriter, r *http.Request) {
-	url := fmt.Sprintf("http://%s%s", r.Host, r.RequestURI)
-	w.Header().Set("Send-To-Pipe", "curl -T- -s "+url)
-	w.Header().Set("Receive-From-Pipe", "curl -s "+url)
-	w.Header().Set("New-Pipe-Receive", fmt.Sprintf("curl -s http://%s/pipe | curl -K-", r.Host))
-	//w.Header().Set("Content-Location", url)
+func handler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		home(w, r)
+		return
+	}
+	if r.URL.Path == "/favicon.ico" {
+		return
+	}
+
+	// /<key>
+	m := keyPath.FindStringSubmatch(r.URL.Path)
+	if m == nil {
+		http.NotFound(w, r)
+		return
+	}
+	key := m[1]
 
 	if r.Method == "GET" {
-		recv(w, r)
-	} else if r.Method == "POST" || r.Method == "PUT" {
-		send(w, r)
-	} else {
-		http.Error(w, "Invalid Method", http.StatusNotFound)
+		recv(w, r, key)
+		return
 	}
+	if r.Method == "POST" || r.Method == "PUT" {
+		send(w, r, key)
+		return
+	}
+	http.Error(w, "Invalid Method", http.StatusNotFound)
+}
+
+// handler to show basic information on the home page
+func home(w http.ResponseWriter, r *http.Request) {
+	newkey := randASCIIBytes(8)
+	url := fmt.Sprintf("http://%s/%s", r.Host, newkey)
+	receive := fmt.Sprintf("curl -s %s", url)
+	send := fmt.Sprintf("curl -T- -s %s", url)
+
+	fmt.Fprintln(w, "# pipe url")
+	fmt.Fprintln(w, url)
+	fmt.Fprintln(w, "# receive from pipe")
+	fmt.Fprintln(w, receive)
+	fmt.Fprintln(w, "# send to pipe")
+	fmt.Fprintln(w, send)
 }
 
 // receive data from any senders
-func recv(w http.ResponseWriter, r *http.Request) {
+func recv(w http.ResponseWriter, r *http.Request, key string) {
 	// this is required so that data is streamed back to the client
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	// this is used to flush output back to the client as it is received
 	flusher, _ := w.(http.Flusher)
-	// this detects client disconnects
-	closer, _ := w.(http.CloseNotifier)
-
-	// store the active streams so that data can be sent by another request
-	receiver := MakeReceiver(w, flusher)
-
 	flusher.Flush()
 
-	allReceivers.Add(receiver)
-	defer allReceivers.Delete(receiver)
+	// store the active streams by key so that data can be sent by another request
+	receiver := MakeReceiver(w, flusher)
+	allReceivers.Add(key, receiver)
+	defer allReceivers.Delete(key, receiver)
 
 	done := false
 	for done == false {
 		select {
 		// the receiver disconnected before completion
-		case <-closer.CloseNotify():
+		case <-r.Context().Done():
 			done = true
 		// a sender completed a transfer and closed the stream (EOF received)
 		case <-receiver.CloseNotify():
@@ -186,35 +253,27 @@ func recv(w http.ResponseWriter, r *http.Request) {
 }
 
 // send data to any connected receivers
-func send(w http.ResponseWriter, r *http.Request) {
+func send(w http.ResponseWriter, r *http.Request, key string) {
 	// upload size limit
 	r.Body = http.MaxBytesReader(w, r.Body, 5*1024*1024)
 
+	// Look to see if there are any receivers attached to this key
+	receiverList, exists := allReceivers.Find(key)
+	if !exists {
+		return
+	}
+
 	// copy the body to any listening receivers (see Receivers.Write)
-	_, err := io.Copy(allReceivers, r.Body)
+	_, err := io.Copy(receiverList, r.Body)
 
 	// if the copy made it all the way to EOF, close the receivers
 	if err == nil {
-		allReceivers.Close()
+		receiverList.Close()
 	}
 }
 
-func new(w http.ResponseWriter, r *http.Request) {
-	newkey := randASCIIBytes(8)
-	url := fmt.Sprintf("http://%s/pipe/%s", r.Host, newkey)
-	curlconfig := fmt.Sprintf("url=\"%s\"\nsilent\ndump-header=\"/dev/tty\"\n", url)
-	w.Header().Set("Send-To-Pipe", "curl -T- -s "+url)
-	w.Header().Set("Receive-From-Pipe", "curl -s "+url)
-	w.Header().Set("New-Pipe-Receive", fmt.Sprintf("curl -s http://%s/pipe | curl -K-", r.Host))
-	//w.Header().Set("Location", url)
-	//w.WriteHeader(http.StatusFound)
-	fmt.Fprintf(w, curlconfig)
-}
-
 func main() {
-	http.HandleFunc("/pipe", new)
-	http.HandleFunc("/pipe/", pipe)
-	http.HandleFunc("/", home)
+	http.HandleFunc("/", handler)
 
 	// Accept a command line flag "-httpaddr :8080"
 	// This flag tells the server the http address to listen on
