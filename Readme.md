@@ -2,7 +2,7 @@
 PIPE TO ME
 ==========
 
-Stream data through http over curl.
+Stream data through http over curl.  Hosted at [pipeto.me](https://pipeto.me/)
 
 ![](demo.gif)
 
