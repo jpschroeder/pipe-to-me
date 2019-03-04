@@ -11,7 +11,17 @@ import (
 	"strings"
 )
 
-var allPipes = MakePipeCollection()
+const (
+	maxUploadMb = 64
+	keySize     = 12
+	keyBytes    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+)
+
+var (
+	baseUrl  = "http://localhost:8080/"
+	keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
+	allPipes = MakePipeCollection()
+)
 
 // Hold the information for a single receiver
 
@@ -181,6 +191,29 @@ func (pc *PipeCollection) RemoveSender(key string, pipe *Pipe) {
 	pc.DeletePipeIfEmpty(key, pipe)
 }
 
+type PipeStats struct {
+	PipeCount     int
+	ReceiverCount int
+	SenderCount   int
+	BytesSent     int
+}
+
+func (pc PipeCollection) Stats() PipeStats {
+	stats := PipeStats{
+		PipeCount:     0,
+		ReceiverCount: 0,
+		SenderCount:   0,
+		BytesSent:     0,
+	}
+	for _, pipe := range pc.pipes {
+		stats.PipeCount++
+		stats.ReceiverCount += pipe.ReceiverCount()
+		stats.SenderCount += pipe.SenderCount()
+		stats.BytesSent += pipe.BytesSent()
+	}
+	return stats
+}
+
 func (pc PipeCollection) String() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("%d keys\n", len(pc.pipes)))
@@ -198,9 +231,7 @@ func MakePipeCollection() PipeCollection {
 
 // Utilities
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-func randASCIIBytes(n int) []byte {
+func randKey(n int) []byte {
 	output := make([]byte, n)
 	// We will take n bytes, one byte for each character of output.
 	randomness := make([]byte, n)
@@ -209,7 +240,7 @@ func randASCIIBytes(n int) []byte {
 	if err != nil {
 		panic(err)
 	}
-	l := len(letterBytes)
+	l := len(keyBytes)
 	// fill output
 	for pos := range output {
 		// get random item
@@ -217,14 +248,12 @@ func randASCIIBytes(n int) []byte {
 		// random % 64
 		randomPos := random % uint8(l)
 		// put into output
-		output[pos] = letterBytes[randomPos]
+		output[pos] = keyBytes[randomPos]
 	}
 	return output
 }
 
 // Handlers
-
-var keyPath = regexp.MustCompile("^/([a-z0-9]+)$")
 
 // the root http handler
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -237,7 +266,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// /<key>
-	m := keyPath.FindStringSubmatch(r.URL.Path)
+	m := keyRegex.FindStringSubmatch(r.URL.Path)
 	if m == nil {
 		http.NotFound(w, r)
 		return
@@ -257,21 +286,47 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 // handler that generates a new key and gives the user information on it
 func home(w http.ResponseWriter, r *http.Request) {
-	newkey := randASCIIBytes(12)
-	url := fmt.Sprintf("http://%s/%s", r.Host, newkey)
+	newkey := randKey(keySize)
+	url := fmt.Sprintf("%s%s", baseUrl, newkey)
 	receive := fmt.Sprintf("curl -s %s", url)
 	send := fmt.Sprintf("curl -T- -s %s", url)
 
-	fmt.Fprintln(w, "# pipe url")
-	fmt.Fprintln(w, url+"\n")
-	fmt.Fprintln(w, "# receive from pipe")
-	fmt.Fprintln(w, receive+"\n")
-	fmt.Fprintln(w, "# send to pipe")
-	fmt.Fprintln(w, send+"\n")
+	fmt.Fprintf(w, `PIPE TO ME
+==========
+
+Your randomly generated pipe address:
+	%s
+Read from the pipe:
+	%s
+Send to the pipe:
+	%s
+	<type input>
+
+Data is not buffered or stored in any way.
+If data is sent to the pipe when no receivers are listening, 
+it will be dropped and is not retrievable.
+Data is also not retrievable after it has been delivered.
+
+Maximum upload size: %d MB
+Not allowed: anything illegal, malicious, inappropriate, private, or nsfw 
+Source: https://github.com/jpschroeder/pipetome
+
+File transfer example:
+	%s > output.txt
+	cat input.txt | %s
+`, url, receive, send, maxUploadMb, receive, send)
 }
 
 func stats(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, allPipes.String())
+	stats := allPipes.Stats()
+	fmt.Fprintf(w, `STATS
+=====
+
+Connected Pipes: 	%d
+Connected Receivers: 	%d
+Connected Senders: 	%d
+Connected Sent: 	%d bytes
+`, stats.PipeCount, stats.ReceiverCount, stats.SenderCount, stats.BytesSent)
 }
 
 // receive data from any senders
@@ -305,7 +360,7 @@ func recv(w http.ResponseWriter, r *http.Request, key string) {
 // send data to any connected receivers
 func send(w http.ResponseWriter, r *http.Request, key string) {
 	// upload size limit
-	r.Body = http.MaxBytesReader(w, r.Body, 5*1024*1024)
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
 
 	// Look to see if there are any receivers attached to this key
 	pipe := allPipes.AddSender(key)
@@ -321,16 +376,22 @@ func send(w http.ResponseWriter, r *http.Request, key string) {
 }
 
 func main() {
-	http.HandleFunc("/stats", stats)
-	http.HandleFunc("/", handler)
-
 	// Accept a command line flag "-httpaddr :8080"
 	// This flag tells the server the http address to listen on
 	httpaddr := flag.String("httpaddr", "localhost:8080",
 		"the address/port to listen on for http \n"+
 			"use :<port> to listen on all addresses\n")
 
+	// Accept a command line flag "-baseurl https://mysite.com/"
+	baseurl := flag.String("baseurl", baseUrl,
+		"the base url of the service \n")
+
 	flag.Parse()
+
+	baseUrl = *baseurl
+
+	http.HandleFunc("/stats", stats)
+	http.HandleFunc("/", handler)
 
 	log.Println("Listening on http:", *httpaddr)
 	log.Fatal(http.ListenAndServe(*httpaddr, nil))
