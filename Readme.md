@@ -4,6 +4,8 @@ PIPE TO ME
 
 Stream data through http over curl.
 
+![](demo.gif)
+
 ```
 Your randomly generated pipe address:
 	https://<host>/<key>
