@@ -309,7 +309,7 @@ Data is also not retrievable after it has been delivered.
 
 Maximum upload size: %d MB
 Not allowed: anything illegal, malicious, inappropriate, private, or nsfw 
-Source: https://github.com/jpschroeder/pipetome
+Source: https://github.com/jpschroeder/pipe-to-me
 
 File transfer example:
 	%s > output.txt

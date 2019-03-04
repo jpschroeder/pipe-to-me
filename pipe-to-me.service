@@ -1,0 +1,12 @@
+[Unit]
+Description=pipe-to-me
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+WorkingDirectory=/root/data/pipe-to-me
+ExecStart=/root/data/pipe-to-me/pipe-to-me -httpaddr :8082 -baseurl http://pipeto.me
+
+[Install]
+WantedBy=multi-user.target
