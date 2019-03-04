@@ -54,7 +54,7 @@ In order to build the project, just use:
 go build
 ```
 
-## deploying
+## Deploying
 
 You can build the project under linux (or Windows Subsystem for Linux) and just copy the executable to your server.
 
@@ -67,7 +67,7 @@ Enable it on boot with: `systemctl enable pipe-to-me`
 Check it's status with: `systemctl status pipe-to-me`  
 See standard output/error with: `journalctl -f -u pipe-to-me`
 
-### nginx
+### NGINX
 
 You can host the application using go directly, or you can listen on a local port and use nginx to proxy connections to the app.
 
@@ -81,7 +81,7 @@ Enable the go proxy: `ln -s /etc/nginx/sites-available/pipe-to-me.nginx.conf /et
 
 Restart nginx to pick up the changes: `systemctl restart nginx`
 
-## nginx https
+### NGINX HTTPS
 
 If running as a stand-alone go application, you can use the built-in https support.  When running behind a proxy, you should enable https in nginx and forward to the localhost http address.
 

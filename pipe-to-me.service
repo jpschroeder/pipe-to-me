@@ -6,7 +6,7 @@ Type=simple
 Restart=always
 RestartSec=5s
 WorkingDirectory=/root/data/pipe-to-me
-ExecStart=/root/data/pipe-to-me/pipe-to-me -httpaddr :8082 -baseurl http://pipeto.me
+ExecStart=/root/data/pipe-to-me/pipe-to-me -httpaddr localhost:8082 -baseurl https://pipeto.me/
 
 [Install]
 WantedBy=multi-user.target
