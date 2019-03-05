@@ -32,6 +32,10 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/favicon.ico" {
 		return
 	}
+	if r.URL.Path == "/robots.txt" {
+		fmt.Fprintf(w, "User-agent: *\nDisallow: /")
+		return
+	}
 
 	// /<key>
 	m := keyRegex.FindStringSubmatch(r.URL.Path)
