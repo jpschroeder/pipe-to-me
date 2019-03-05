@@ -5,8 +5,32 @@ import (
 	"testing"
 )
 
+type TestReceiver struct {
+	writer     bytes.Buffer
+	closeCount int
+}
+
+func (r *TestReceiver) Write(p []byte) (n int, err error) {
+	n, err = r.writer.Write(p)
+	return
+}
+
+func (r *TestReceiver) Close() error {
+	r.closeCount++
+	return nil
+}
+
+type TestHandler struct {
+	bytes int
+}
+
+func (pc *TestHandler) WriteCompleted(bytes int) {
+	pc.bytes += bytes
+}
+
 func TestPipeSenders(t *testing.T) {
-	pipe := MakePipe()
+	handler := &TestHandler{}
+	pipe := MakePipe(handler)
 	pipe.AddSender()
 	if pipe.SenderCount() != 1 {
 		t.Errorf("Invalid sender count: %d %d", 1, pipe.SenderCount())
@@ -30,23 +54,9 @@ func TestPipeSenders(t *testing.T) {
 	}
 }
 
-type TestReceiver struct {
-	writer     bytes.Buffer
-	closeCount int
-}
-
-func (r *TestReceiver) Write(p []byte) (n int, err error) {
-	n, err = r.writer.Write(p)
-	return
-}
-
-func (r *TestReceiver) Close() error {
-	r.closeCount++
-	return nil
-}
-
 func TestPipeReceivers(t *testing.T) {
-	pipe := MakePipe()
+	handler := &TestHandler{}
+	pipe := MakePipe(handler)
 	r1 := &TestReceiver{}
 	r2 := &TestReceiver{}
 	r3 := &TestReceiver{}
@@ -75,7 +85,8 @@ func TestPipeReceivers(t *testing.T) {
 }
 
 func TestPipeWrite(t *testing.T) {
-	pipe := MakePipe()
+	handler := &TestHandler{}
+	pipe := MakePipe(handler)
 	receivers := [3]*TestReceiver{
 		&TestReceiver{},
 		&TestReceiver{},
@@ -109,7 +120,8 @@ func TestPipeWrite(t *testing.T) {
 }
 
 func TestPipeClose(t *testing.T) {
-	pipe := MakePipe()
+	handler := &TestHandler{}
+	pipe := MakePipe(handler)
 	receivers := [3]*TestReceiver{
 		&TestReceiver{},
 		&TestReceiver{},

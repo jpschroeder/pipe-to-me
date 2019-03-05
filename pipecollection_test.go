@@ -61,7 +61,7 @@ func TestCollectionAddRemove(t *testing.T) {
 	pipes.AddReceiver("key2", r3)
 	pipes.RemoveReceiver("key2", r3)
 
-	stats := pipes.Stats()
+	stats := pipes.ActiveStats()
 
 	if stats.PipeCount != 2 {
 		t.Errorf("Invalid pipe count: %d", stats.PipeCount)
