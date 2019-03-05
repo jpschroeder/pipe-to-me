@@ -14,18 +14,19 @@ const (
 	keySize     = 8
 )
 
-var (
-	baseUrl  = "http://localhost:8080/"
-	keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
-	allPipes = MakePipeCollection()
-)
-
 // Handlers
 
+type server struct {
+	allPipes PipeCollection
+	baseUrl  string
+}
+
+var keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
+
 // the root http handler
-func handler(w http.ResponseWriter, r *http.Request) {
+func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		home(w, r)
+		s.home(w, r)
 		return
 	}
 	if r.URL.Path == "/favicon.ico" {
@@ -41,20 +42,20 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	key := m[1]
 
 	if r.Method == "GET" {
-		recv(w, r, key)
+		s.recv(w, r, key)
 		return
 	}
 	if r.Method == "POST" || r.Method == "PUT" {
-		send(w, r, key)
+		s.send(w, r, key)
 		return
 	}
 	http.Error(w, "Invalid Method", http.StatusNotFound)
 }
 
 // handler that generates a new key and gives the user information on it
-func home(w http.ResponseWriter, r *http.Request) {
+func (s *server) home(w http.ResponseWriter, r *http.Request) {
 	newkey := randKey(keySize)
-	url := fmt.Sprintf("%s%s", baseUrl, newkey)
+	url := fmt.Sprintf("%s%s", s.baseUrl, newkey)
 	receive := fmt.Sprintf("curl -s %s", url)
 	send := fmt.Sprintf("curl -T- -s %s", url)
 
@@ -102,8 +103,8 @@ Source: https://github.com/jpschroeder/pipe-to-me
 		maxUploadMb)
 }
 
-func stats(w http.ResponseWriter, r *http.Request) {
-	global := allPipes.GlobalStats()
+func (s *server) stats(w http.ResponseWriter, r *http.Request) {
+	global := s.allPipes.GlobalStats()
 	gstr := fmt.Sprintf(`
 Total Pipes: 		%d
 Total Receivers: 	%d
@@ -111,7 +112,7 @@ Total Senders: 		%d
 Total Sent: 		%d bytes
 `, global.PipeCount, global.ReceiverCount, global.SenderCount, global.BytesSent)
 
-	active := allPipes.ActiveStats()
+	active := s.allPipes.ActiveStats()
 	astr := fmt.Sprintf(`
 Connected Pipes: 	%d
 Connected Receivers: 	%d
@@ -123,7 +124,7 @@ Connected Sent: 	%d bytes
 }
 
 // receive data from any senders
-func recv(w http.ResponseWriter, r *http.Request, key string) {
+func (s *server) recv(w http.ResponseWriter, r *http.Request, key string) {
 	// this is required so that data is streamed back to the client
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -134,8 +135,8 @@ func recv(w http.ResponseWriter, r *http.Request, key string) {
 
 	// store the active streams by key so that data can be sent by another request
 	receiver := MakeReceiver(w, flusher)
-	allPipes.AddReceiver(key, receiver)
-	defer allPipes.RemoveReceiver(key, receiver)
+	s.allPipes.AddReceiver(key, receiver)
+	defer s.allPipes.RemoveReceiver(key, receiver)
 
 	done := false
 	for done == false {
@@ -151,13 +152,13 @@ func recv(w http.ResponseWriter, r *http.Request, key string) {
 }
 
 // send data to any connected receivers
-func send(w http.ResponseWriter, r *http.Request, key string) {
+func (s *server) send(w http.ResponseWriter, r *http.Request, key string) {
 	// upload size limit
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
 
 	// Look to see if there are any receivers attached to this key
-	pipe := allPipes.AddSender(key)
-	defer allPipes.RemoveSender(key, pipe)
+	pipe := s.allPipes.AddSender(key)
+	defer s.allPipes.RemoveSender(key, pipe)
 
 	// copy the body to any listening receivers (see Receivers.Write)
 	_, err := io.Copy(pipe, r.Body)
@@ -176,15 +177,17 @@ func main() {
 			"use :<port> to listen on all addresses\n")
 
 	// Accept a command line flag "-baseurl https://mysite.com/"
-	baseurl := flag.String("baseurl", baseUrl,
+	baseurl := flag.String("baseurl", "http://localhost:8080/",
 		"the base url of the service \n")
 
 	flag.Parse()
 
-	baseUrl = *baseurl
-
-	http.HandleFunc("/stats", stats)
-	http.HandleFunc("/", handler)
+	s := server{
+		allPipes: MakePipeCollection(),
+		baseUrl:  *baseurl,
+	}
+	http.HandleFunc("/stats", s.stats)
+	http.HandleFunc("/", s.handler)
 
 	log.Println("Listening on http:", *httpaddr)
 	log.Fatal(http.ListenAndServe(*httpaddr, nil))
