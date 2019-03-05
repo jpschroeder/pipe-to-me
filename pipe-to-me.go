@@ -1,20 +1,17 @@
 package main
 
 import (
-	"crypto/rand"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"regexp"
-	"strings"
 )
 
 const (
 	maxUploadMb = 64
 	keySize     = 12
-	keyBytes    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 var (
@@ -22,236 +19,6 @@ var (
 	keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
 	allPipes = MakePipeCollection()
 )
-
-// Hold the information for a single receiver
-
-// a writer that is automatically flushed back to the receiver client
-// and a notification channel when it is closed
-type Receiver struct {
-	writer  io.Writer
-	flusher http.Flusher
-	done    chan bool
-}
-
-// write a single received buffer to the receiver and flush it back to the client
-func (r Receiver) Write(p []byte) (n int, err error) {
-	n, err = r.writer.Write(p)
-	r.flusher.Flush()
-	return
-}
-
-// close the receiver. flush it one last time and notify that it is closed
-func (r Receiver) Close() error {
-	r.flusher.Flush()
-	r.done <- true
-	return nil
-}
-
-// a notification channel that will tell when the reciever has been closed
-func (r Receiver) CloseNotify() <-chan bool {
-	return r.done
-}
-
-func MakeReceiver(w io.Writer, f http.Flusher) Receiver {
-	return Receiver{
-		writer:  w,
-		flusher: f,
-		done:    make(chan bool),
-	}
-}
-
-// Hold the information for a single pipe
-
-type Pipe struct {
-	// a list of receivers that are listening on a pipe
-	// allow receivers to be added an removed dynamically
-	receivers map[io.WriteCloser]bool
-	senders   int
-	bytes     int
-}
-
-// add a new receiver listening on the pipe
-func (p *Pipe) AddReceiver(w io.WriteCloser) {
-	p.receivers[w] = true
-}
-
-// remove a previously added receiver
-func (p *Pipe) RemoveReceiver(w io.WriteCloser) {
-	delete(p.receivers, w)
-}
-
-// the number of receivers on the pipe
-func (p Pipe) ReceiverCount() int {
-	return len(p.receivers)
-}
-
-// add a new sender connected to send data on the pipe (informational)
-func (p *Pipe) AddSender() {
-	p.senders++
-}
-
-// remove a sender connected to the pipe (informational)
-func (p *Pipe) RemoveSender() {
-	p.senders--
-}
-
-// the number of senders on the pipe
-func (p Pipe) SenderCount() int {
-	return p.senders
-}
-
-// the number of bytes sent through the pipe
-func (p Pipe) BytesSent() int {
-	return p.bytes
-}
-
-// write the buffer to all registered receivers
-func (p *Pipe) Write(buffer []byte) (int, error) {
-	for receiver := range p.receivers {
-		// errors from one of the receivers shouldn't affect any others
-		receiver.Write(buffer)
-	}
-	p.bytes += len(buffer)
-	return len(buffer), nil
-}
-
-// close all of the registered receivers
-func (p Pipe) Close() error {
-	for receiver := range p.receivers {
-		// errors from one of the receivers shouldn't affect any others
-		receiver.Close()
-	}
-	return nil
-}
-
-func (p Pipe) String() string {
-	return fmt.Sprintf("%d receivers | %d senders | %d bytes\n",
-		p.ReceiverCount(),
-		p.SenderCount(),
-		p.BytesSent())
-}
-
-func MakePipe() *Pipe {
-	return &Pipe{
-		receivers: make(map[io.WriteCloser]bool),
-		senders:   0,
-	}
-}
-
-// A map of pipes partitioned by a key
-
-type PipeCollection struct {
-	// pipe key -> Pipe
-	pipes map[string]*Pipe
-}
-
-// find a pipe or create one if it doesn't exist
-func (pc *PipeCollection) FindOrCreatePipe(key string) *Pipe {
-	pipe, exists := pc.pipes[key]
-	if !exists {
-		pipe = MakePipe()
-		pc.pipes[key] = pipe
-	}
-	return pipe
-}
-
-// delete the pipe if it has no attached receivers
-func (pc *PipeCollection) DeletePipeIfEmpty(key string, pipe *Pipe) {
-	if pipe.ReceiverCount() < 1 && pipe.SenderCount() < 1 {
-		delete(pc.pipes, key)
-	}
-}
-
-// add a new receiver to a pipe - create the pipe if it doesn't exist
-func (pc *PipeCollection) AddReceiver(key string, receiver Receiver) {
-	pipe := pc.FindOrCreatePipe(key)
-	pipe.AddReceiver(receiver)
-}
-
-// remove a receiver from a pipe - remove the pipe if its empty
-func (pc *PipeCollection) DeleteReceiver(key string, receiver Receiver) {
-	pipe, exists := pc.pipes[key]
-	if !exists {
-		return
-	}
-	pipe.RemoveReceiver(receiver)
-	pc.DeletePipeIfEmpty(key, pipe)
-}
-
-// add a new sender to a pipe - create the pipe if it doesn't exist
-func (pc *PipeCollection) AddSender(key string) *Pipe {
-	pipe := pc.FindOrCreatePipe(key)
-	pipe.AddSender()
-	return pipe
-}
-
-// remove a sender from the pipe - remove the pipe if its empty
-func (pc *PipeCollection) RemoveSender(key string, pipe *Pipe) {
-	pipe.RemoveSender()
-	pc.DeletePipeIfEmpty(key, pipe)
-}
-
-type PipeStats struct {
-	PipeCount     int
-	ReceiverCount int
-	SenderCount   int
-	BytesSent     int
-}
-
-func (pc PipeCollection) Stats() PipeStats {
-	stats := PipeStats{
-		PipeCount:     0,
-		ReceiverCount: 0,
-		SenderCount:   0,
-		BytesSent:     0,
-	}
-	for _, pipe := range pc.pipes {
-		stats.PipeCount++
-		stats.ReceiverCount += pipe.ReceiverCount()
-		stats.SenderCount += pipe.SenderCount()
-		stats.BytesSent += pipe.BytesSent()
-	}
-	return stats
-}
-
-func (pc PipeCollection) String() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%d keys\n", len(pc.pipes)))
-	for key, pipe := range pc.pipes {
-		sb.WriteString(fmt.Sprintf("%s: %s", key, pipe.String()))
-	}
-	return sb.String()
-}
-
-func MakePipeCollection() PipeCollection {
-	return PipeCollection{
-		pipes: make(map[string]*Pipe),
-	}
-}
-
-// Utilities
-
-func randKey(n int) []byte {
-	output := make([]byte, n)
-	// We will take n bytes, one byte for each character of output.
-	randomness := make([]byte, n)
-	// read all random
-	_, err := rand.Read(randomness)
-	if err != nil {
-		panic(err)
-	}
-	l := len(keyBytes)
-	// fill output
-	for pos := range output {
-		// get random item
-		random := uint8(randomness[pos])
-		// random % 64
-		randomPos := random % uint8(l)
-		// put into output
-		output[pos] = keyBytes[randomPos]
-	}
-	return output
-}
 
 // Handlers
 
@@ -314,7 +81,11 @@ Source: https://github.com/jpschroeder/pipe-to-me
 File transfer example:
 	%s > output.txt
 	cat input.txt | %s
-`, url, receive, send, maxUploadMb, receive, send)
+
+Watch log example:
+	browse to: %s
+	tail -f logfile | %s
+`, url, receive, send, maxUploadMb, receive, send, receive, send)
 }
 
 func stats(w http.ResponseWriter, r *http.Request) {
@@ -342,7 +113,7 @@ func recv(w http.ResponseWriter, r *http.Request, key string) {
 	// store the active streams by key so that data can be sent by another request
 	receiver := MakeReceiver(w, flusher)
 	allPipes.AddReceiver(key, receiver)
-	defer allPipes.DeleteReceiver(key, receiver)
+	defer allPipes.RemoveReceiver(key, receiver)
 
 	done := false
 	for done == false {

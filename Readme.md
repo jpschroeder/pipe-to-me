@@ -8,11 +8,11 @@ Stream data over http using curl.  Hosted at [pipeto.me](https://pipeto.me/)
 
 ```
 Your randomly generated pipe address:
-	https://<host>/<key>
+	https://pipeto.me/<key>
 Read from the pipe:
-	curl -s https://<host>/<key>
+	curl -s https://pipeto.me/<key>
 Send to the pipe:
-	curl -T- -s https://<host>/<key>
+	curl -T- -s https://pipeto.me/<key>
 	<type input>
 
 Data is not buffered or stored in any way.
@@ -25,8 +25,12 @@ Not allowed: anything illegal, malicious, inappropriate, private, or nsfw
 Source: https://github.com/jpschroeder/pipe-to-me
 
 File transfer example:
-	curl -s https://<host>/<key> > output.txt
-	cat input.txt | curl -T- -s https://<host>/<key>
+	curl -s https://pipeto.me/<key> > output.txt
+	cat input.txt | curl -T- -s https://pipeto.me/<key>
+
+Watch log example:
+	browse to: curl -s https://pipeto.me/<key>
+	tail -f logfile | curl -T- -s https://pipeto.me/<key>
 ```
 
 ## Installation
