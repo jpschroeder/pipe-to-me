@@ -89,15 +89,23 @@ Watch log example:
 }
 
 func stats(w http.ResponseWriter, r *http.Request) {
-	stats := allPipes.Stats()
-	fmt.Fprintf(w, `STATS
-=====
+	global := allPipes.GlobalStats()
+	gstr := fmt.Sprintf(`
+Total Pipes: 		%d
+Total Receivers: 	%d
+Total Senders: 		%d
+Total Sent: 		%d bytes
+`, global.PipeCount, global.ReceiverCount, global.SenderCount, global.BytesSent)
 
+	active := allPipes.ActiveStats()
+	astr := fmt.Sprintf(`
 Connected Pipes: 	%d
 Connected Receivers: 	%d
 Connected Senders: 	%d
 Connected Sent: 	%d bytes
-`, stats.PipeCount, stats.ReceiverCount, stats.SenderCount, stats.BytesSent)
+`, active.PipeCount, active.ReceiverCount, active.SenderCount, active.BytesSent)
+
+	fmt.Fprintf(w, "STATS\n=====\n%s%s\n", astr, gstr)
 }
 
 // receive data from any senders

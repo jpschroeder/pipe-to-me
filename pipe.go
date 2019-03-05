@@ -13,6 +13,7 @@ type Pipe struct {
 	receivers map[io.WriteCloser]bool
 	senders   int
 	bytes     int
+	written   WriteCompleteHandler
 }
 
 // add a new receiver listening on the pipe
@@ -56,8 +57,10 @@ func (p *Pipe) Write(buffer []byte) (int, error) {
 		// errors from one of the receivers shouldn't affect any others
 		receiver.Write(buffer)
 	}
-	p.bytes += len(buffer)
-	return len(buffer), nil
+	bytes := len(buffer)
+	p.bytes += bytes
+	p.written.WriteCompleted(bytes)
+	return bytes, nil
 }
 
 // close all of the registered receivers
@@ -76,9 +79,11 @@ func (p Pipe) String() string {
 		p.BytesSent())
 }
 
-func MakePipe() *Pipe {
+func MakePipe(written WriteCompleteHandler) *Pipe {
 	return &Pipe{
 		receivers: make(map[io.WriteCloser]bool),
 		senders:   0,
+		bytes:     0,
+		written:   written,
 	}
 }

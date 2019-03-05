@@ -11,14 +11,24 @@ import (
 type PipeCollection struct {
 	// pipe key -> Pipe
 	pipes map[string]*Pipe
+	stats *PipeStats
+}
+
+func (pc *PipeCollection) WriteCompleted(bytes int) {
+	pc.stats.BytesSent += bytes
+}
+
+type WriteCompleteHandler interface {
+	WriteCompleted(bytes int)
 }
 
 // find a pipe or create one if it doesn't exist
 func (pc *PipeCollection) FindOrCreatePipe(key string) *Pipe {
 	pipe, exists := pc.pipes[key]
 	if !exists {
-		pipe = MakePipe()
+		pipe = MakePipe(pc)
 		pc.pipes[key] = pipe
+		pc.stats.PipeCount++
 	}
 	return pipe
 }
@@ -34,6 +44,7 @@ func (pc *PipeCollection) DeletePipeIfEmpty(key string, pipe *Pipe) {
 func (pc *PipeCollection) AddReceiver(key string, receiver io.WriteCloser) {
 	pipe := pc.FindOrCreatePipe(key)
 	pipe.AddReceiver(receiver)
+	pc.stats.ReceiverCount++
 }
 
 // remove a receiver from a pipe - remove the pipe if its empty
@@ -50,6 +61,7 @@ func (pc *PipeCollection) RemoveReceiver(key string, receiver io.WriteCloser) {
 func (pc *PipeCollection) AddSender(key string) *Pipe {
 	pipe := pc.FindOrCreatePipe(key)
 	pipe.AddSender()
+	pc.stats.SenderCount++
 	return pipe
 }
 
@@ -66,13 +78,17 @@ type PipeStats struct {
 	BytesSent     int
 }
 
-func (pc PipeCollection) Stats() PipeStats {
-	stats := PipeStats{
+func MakeStats() PipeStats {
+	return PipeStats{
 		PipeCount:     0,
 		ReceiverCount: 0,
 		SenderCount:   0,
 		BytesSent:     0,
 	}
+}
+
+func (pc PipeCollection) ActiveStats() PipeStats {
+	stats := MakeStats()
 	for _, pipe := range pc.pipes {
 		stats.PipeCount++
 		stats.ReceiverCount += pipe.ReceiverCount()
@@ -80,6 +96,10 @@ func (pc PipeCollection) Stats() PipeStats {
 		stats.BytesSent += pipe.BytesSent()
 	}
 	return stats
+}
+
+func (pc PipeCollection) GlobalStats() PipeStats {
+	return *pc.stats
 }
 
 func (pc PipeCollection) String() string {
@@ -92,7 +112,9 @@ func (pc PipeCollection) String() string {
 }
 
 func MakePipeCollection() PipeCollection {
+	stats := MakeStats()
 	return PipeCollection{
 		pipes: make(map[string]*Pipe),
+		stats: &stats,
 	}
 }
