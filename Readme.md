@@ -9,28 +9,37 @@ Stream data over http using curl.  Hosted at [pipeto.me](https://pipeto.me/)
 ```
 Your randomly generated pipe address:
 	https://pipeto.me/<key>
-Read from the pipe:
-	curl -s https://pipeto.me/<key>
-Send to the pipe:
+
+Input example:
+	browse to (chrome, firefox): https://pipeto.me/<key>
 	curl -T- -s https://pipeto.me/<key>
-	<type input>
+	hello world<enter>
 
-Data is not buffered or stored in any way.
-If data is sent to the pipe when no receivers are listening, 
-it will be dropped and is not retrievable.
-Data is also not retrievable after it has been delivered.
-
-Maximum upload size: 64 MB
-Not allowed: anything illegal, malicious, inappropriate, private, or nsfw 
-Source: https://github.com/jpschroeder/pipe-to-me
+Pipe example:
+	separate terminal: curl -s https://pipeto.me/<key>
+	echo hello world | curl -T- -s https://pipeto.me/<key>
 
 File transfer example:
 	curl -s https://pipeto.me/<key> > output.txt
 	cat input.txt | curl -T- -s https://pipeto.me/<key>
 
 Watch log example:
-	browse to: curl -s https://pipeto.me/<key>
+	browse to (chrome, firefox): https://pipeto.me/<key>
 	tail -f logfile | curl -T- -s https://pipeto.me/<key>
+
+Data is not buffered or stored in any way.
+- If data is sent to the pipe when no receivers are listening, 
+  it will be dropped and is not retrievable.
+- Data is also not retrievable after it has been delivered.
+
+Maximum upload size: 64 MB
+Not allowed: anything illegal, malicious, inappropriate, etc
+
+This is a personal project and makes no guarantees on:
+	reliability, performance, privacy, etc
+
+Demo: https://raw.githubusercontent.com/jpschroeder/pipe-to-me/master/demo.gif
+Source: https://github.com/jpschroeder/pipe-to-me
 ```
 
 ## Installation

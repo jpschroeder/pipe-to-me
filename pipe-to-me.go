@@ -11,7 +11,7 @@ import (
 
 const (
 	maxUploadMb = 64
-	keySize     = 12
+	keySize     = 8
 )
 
 var (
@@ -63,29 +63,43 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 Your randomly generated pipe address:
 	%s
-Read from the pipe:
-	%s
-Send to the pipe:
-	%s
-	<type input>
 
-Data is not buffered or stored in any way.
-If data is sent to the pipe when no receivers are listening, 
-it will be dropped and is not retrievable.
-Data is also not retrievable after it has been delivered.
+Input example:
+	browse to (chrome, firefox): %s
+	%s
+	hello world<enter>
 
-Maximum upload size: %d MB
-Not allowed: anything illegal, malicious, inappropriate, private, or nsfw 
-Source: https://github.com/jpschroeder/pipe-to-me
+Pipe example:
+	separate terminal: %s
+	echo hello world | %s
 
 File transfer example:
 	%s > output.txt
 	cat input.txt | %s
 
 Watch log example:
-	browse to: %s
+	browse to (chrome, firefox): %s
 	tail -f logfile | %s
-`, url, receive, send, maxUploadMb, receive, send, receive, send)
+
+Data is not buffered or stored in any way.
+- If data is sent to the pipe when no receivers are listening, 
+  it will be dropped and is not retrievable.
+- Data is also not retrievable after it has been delivered.
+
+Maximum upload size: %d MB
+Not allowed: anything illegal, malicious, inappropriate, etc.
+
+This is a personal project and makes no guarantees on:
+	reliability, performance, privacy, etc.
+
+Demo: https://raw.githubusercontent.com/jpschroeder/pipe-to-me/master/demo.gif
+Source: https://github.com/jpschroeder/pipe-to-me
+`, url,
+		url, send, /* input example */
+		receive, send, /* pipe example */
+		receive, send, /* file transfer example */
+		url, send, /* watch log example */
+		maxUploadMb)
 }
 
 func stats(w http.ResponseWriter, r *http.Request) {
