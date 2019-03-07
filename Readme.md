@@ -4,6 +4,9 @@ PIPE TO ME
 
 Stream data over http using curl.  Hosted at [pipeto.me](https://pipeto.me/)
 
+- No javascript
+- Go standard library only
+
 ![](demo.gif)
 
 ```
