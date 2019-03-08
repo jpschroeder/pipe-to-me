@@ -1,0 +1,7 @@
+version: "3"
+services:
+  pipe-to-me:
+    build: .
+    image: jpschroeder/pipe-to-me
+    ports:
+      - 8080:8080
