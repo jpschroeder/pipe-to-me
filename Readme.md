@@ -116,8 +116,8 @@ The certificate should auto-renew when necessary.
 
 ### Docker
 
-A prepared Docker image is available [here](https://hub.docker.com/r/adamgoose/pipe-to-me).
+A prepared Docker image is available [here](https://hub.docker.com/r/jpschroeder/pipe-to-me).
 
-`docker run --name pipe-to-me -p 80:8080 adamgoose/pipe-to-me -baseurl http://localhost/`
+`docker run --name pipe-to-me -p 80:8080 jpschroeder/pipe-to-me -baseurl http://localhost/`
 
 You can build the image yourself by running `docker-compose up --build`.
