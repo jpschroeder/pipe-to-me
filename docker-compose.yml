@@ -2,6 +2,6 @@ version: "3"
 services:
   pipe-to-me:
     build: .
-    image: adamgoose/pipe-to-me
+    image: jpschroeder/pipe-to-me
     ports:
       - 8080:8080
