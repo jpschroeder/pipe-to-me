@@ -113,3 +113,11 @@ apt-get install python-certbot-nginx
 Generate and install a certificate with: `certbot --nginx -d pipeto.me`
 
 The certificate should auto-renew when necessary.
+
+### Docker
+
+A prepared Docker image is available [here](https://hub.docker.com/r/adamgoose/pipe-to-me).
+
+`docker run --name pipe-to-me -p 80:8080 adamgoose/pipe-to-me -baseurl http://localhost/`
+
+You can build the image yourself by running `docker-compose up --build`.
