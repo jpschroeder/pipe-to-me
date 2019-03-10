@@ -41,10 +41,11 @@ func (pc *PipeCollection) DeletePipeIfEmpty(key string, pipe *Pipe) {
 }
 
 // add a new receiver to a pipe - create the pipe if it doesn't exist
-func (pc *PipeCollection) AddReceiver(key string, receiver io.WriteCloser) {
+func (pc *PipeCollection) AddReceiver(key string, receiver io.WriteCloser) *Pipe {
 	pipe := pc.FindOrCreatePipe(key)
 	pipe.AddReceiver(receiver)
 	pc.stats.ReceiverCount++
+	return pipe
 }
 
 // remove a receiver from a pipe - remove the pipe if its empty

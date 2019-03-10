@@ -12,6 +12,7 @@ import (
 const (
 	maxUploadMb = 64
 	keySize     = 8
+	FailureMode = "fail" // don't allow a connection if there is no one on the other end
 )
 
 // Handlers
@@ -45,12 +46,14 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 	}
 	key := m[1]
 
+	mode := r.URL.Query().Get("mode") // fail = failure mode
+
 	if r.Method == "GET" {
-		s.recv(w, r, key)
+		s.recv(w, r, key, mode)
 		return
 	}
 	if r.Method == "POST" || r.Method == "PUT" {
-		s.send(w, r, key)
+		s.send(w, r, key, mode)
 		return
 	}
 	http.Error(w, "Invalid Method", http.StatusNotFound)
@@ -87,9 +90,17 @@ Watch log example:
 	tail -f logfile | %s
 
 Data is not buffered or stored in any way.
-- If data is sent to the pipe when no receivers are listening, 
-  it will be dropped and is not retrievable.
-- Data is also not retrievable after it has been delivered.
+Data is not retrievable after it has been delivered.
+
+By default: 
+	If data is sent to the pipe when no receivers are listening, 
+	it will be dropped and is not retrievable.
+
+Fail Mode: 
+	%s?mode=fail
+	In this mode, a send request will fail if no receivers are listening.
+	A receive request will fail if no senders are connected.
+	Fail mode should only be used on one side of the connection.
 
 Maximum upload size: %d MB
 Not allowed: anything illegal, malicious, inappropriate, etc.
@@ -104,6 +115,7 @@ Source: https://github.com/jpschroeder/pipe-to-me
 		receive, send, /* pipe example */
 		receive, send, /* file transfer example */
 		url, send, /* watch log example */
+		send, /* fail mode */
 		maxUploadMb)
 }
 
@@ -128,41 +140,48 @@ Connected Sent: 	%d bytes
 }
 
 // receive data from any senders
-func (s *server) recv(w http.ResponseWriter, r *http.Request, key string) {
-	// this is required so that data is streamed back to the client
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
+func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, mode string) {
 	// this is used to flush output back to the client as it is received
 	flusher, _ := w.(http.Flusher)
-	flusher.Flush()
 
 	// store the active streams by key so that data can be sent by another request
 	receiver := MakeReceiver(w, flusher)
-	s.allPipes.AddReceiver(key, receiver)
+	pipe := s.allPipes.AddReceiver(key, receiver)
 	defer s.allPipes.RemoveReceiver(key, receiver)
 
-	done := false
-	for done == false {
-		select {
-		// the receiver disconnected before completion
-		case <-r.Context().Done():
-			done = true
-		// a sender completed a transfer and closed the stream (EOF received)
-		case <-receiver.CloseNotify():
-			done = true
-		}
+	// in failure mode, don't allow a connection if there are no senders
+	if mode == FailureMode && pipe.SenderCount() < 1 {
+		http.Error(w, "No senders connected", http.StatusInternalServerError)
+		return
+	}
+
+	// this is required so that data is streamed back to the client
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	flusher.Flush()
+
+	select {
+	// the receiver disconnected before completion
+	case <-r.Context().Done():
+	// a sender completed a transfer and closed the stream (EOF received)
+	case <-receiver.CloseNotify():
 	}
 }
 
 // send data to any connected receivers
-func (s *server) send(w http.ResponseWriter, r *http.Request, key string) {
-	// upload size limit
-	r.Body = http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
-
+func (s *server) send(w http.ResponseWriter, r *http.Request, key string, mode string) {
 	// Look to see if there are any receivers attached to this key
 	pipe := s.allPipes.AddSender(key)
 	defer s.allPipes.RemoveSender(key, pipe)
+
+	// in failure mode, don't allow a connection if there are no recievers
+	if mode == FailureMode && pipe.ReceiverCount() < 1 {
+		http.Error(w, "No receivers connected", http.StatusExpectationFailed)
+		return
+	}
+
+	// upload size limit
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
 
 	// copy the body to any listening receivers (see Receivers.Write)
 	_, err := io.Copy(pipe, r.Body)

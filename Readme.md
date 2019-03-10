@@ -31,9 +31,17 @@ Watch log example:
 	tail -f logfile | curl -T- -s https://pipeto.me/<key>
 
 Data is not buffered or stored in any way.
-- If data is sent to the pipe when no receivers are listening, 
-  it will be dropped and is not retrievable.
-- Data is also not retrievable after it has been delivered.
+Data is not retrievable after it has been delivered.
+
+By default: 
+	If data is sent to the pipe when no receivers are listening, 
+	it will be dropped and is not retrievable.
+
+Fail Mode: 
+	curl -T- -s https://pipeto.me/<key>?mode=fail
+	In this mode, a send request will fail if no receivers are listening.
+	A receive request will fail if no senders are connected.
+	Fail mode should only be used on one side of the connection.
 
 Maximum upload size: 64 MB
 Not allowed: anything illegal, malicious, inappropriate, etc
