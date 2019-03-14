@@ -7,12 +7,14 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"time"
 )
 
 const (
 	maxUploadMb = 64
 	keySize     = 8
-	FailureMode = "fail" // don't allow a connection if there is no one on the other end
+	FailureMode = "fail"  // don't allow a connection if there is no one on the other end
+	BlockMode   = "block" // don't receive data until there is a connection on the other end
 )
 
 // Handlers
@@ -102,6 +104,11 @@ Fail Mode:
 	A receive request will fail if no senders are connected.
 	Fail mode should only be used on one side of the connection.
 
+Block Mode:
+	curl -T- -s --expect100-timeout 86400 %s?mode=block
+	In this mode, a send request will wait to send data until a receiver connects.
+	Block mode has no effect on a receive request.
+
 Maximum upload size: %d MB
 Not allowed: anything illegal, malicious, inappropriate, etc.
 
@@ -116,6 +123,7 @@ Source: https://github.com/jpschroeder/pipe-to-me
 		receive, send, /* file transfer example */
 		url, send, /* watch log example */
 		send, /* fail mode */
+		url,  /* block mode */
 		maxUploadMb)
 }
 
@@ -178,6 +186,22 @@ func (s *server) send(w http.ResponseWriter, r *http.Request, key string, mode s
 	if mode == FailureMode && pipe.ReceiverCount() < 1 {
 		http.Error(w, "No receivers connected", http.StatusExpectationFailed)
 		return
+	}
+
+	// in block mode, wait for a receiver to connect
+	if mode == BlockMode && pipe.ReceiverCount() < 1 {
+		receiverAdded := pipe.ReceiverAddedSubscribe()
+		defer pipe.ReceiverAddedUnSubscribe(receiverAdded)
+		select {
+		// the receiver disconnected before completion
+		case <-r.Context().Done():
+			return
+		// allow a timeout if the receiver disconnected without closing the context
+		case <-time.After(24 * time.Hour):
+			return
+		// a sender was added to the pipe - continue on
+		case <-receiverAdded:
+		}
 	}
 
 	// upload size limit
