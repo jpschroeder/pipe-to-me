@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -22,6 +21,7 @@ const (
 type server struct {
 	allPipes PipeCollection
 	baseUrl  string
+	maxId    int
 }
 
 var keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
@@ -48,14 +48,14 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 	}
 	key := m[1]
 
-	mode := r.URL.Query().Get("mode") // fail = failure mode
+	s.maxId++
 
 	if r.Method == "GET" {
-		s.recv(w, r, key, mode)
+		s.recv(w, r, key, s.maxId)
 		return
 	}
 	if r.Method == "POST" || r.Method == "PUT" {
-		s.send(w, r, key, mode)
+		s.send(w, r, key, s.maxId)
 		return
 	}
 	http.Error(w, "Invalid Method", http.StatusNotFound)
@@ -101,13 +101,10 @@ By default:
 Fail Mode: 
 	%s?mode=fail
 	In this mode, a send request will fail if no receivers are listening.
-	A receive request will fail if no senders are connected.
-	Fail mode should only be used on one side of the connection.
 
 Block Mode:
 	curl -T- -s --expect100-timeout 86400 %s?mode=block
 	In this mode, a send request will wait to send data until a receiver connects.
-	Block mode has no effect on a receive request.
 
 Maximum upload size: %d MB
 Not allowed: anything illegal, malicious, inappropriate, etc.
@@ -148,25 +145,19 @@ Connected Sent: 	%d bytes
 }
 
 // receive data from any senders
-func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, mode string) {
+func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, id int) {
 	// this is used to flush output back to the client as it is received
 	flusher, _ := w.(http.Flusher)
 
 	// store the active streams by key so that data can be sent by another request
-	receiver := MakeReceiver(w, flusher)
-	pipe := s.allPipes.AddReceiver(key, receiver)
+	receiver := MakeReceiver(w, flusher, id)
+	s.allPipes.AddReceiver(key, receiver)
 	defer s.allPipes.RemoveReceiver(key, receiver)
-
-	// in failure mode, don't allow a connection if there are no senders
-	if mode == FailureMode && pipe.SenderCount() < 1 {
-		http.Error(w, "No senders connected", http.StatusInternalServerError)
-		return
-	}
 
 	// this is required so that data is streamed back to the client
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	flusher.Flush()
+	//flusher.Flush()
 
 	select {
 	// the receiver disconnected before completion
@@ -177,10 +168,12 @@ func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, mode s
 }
 
 // send data to any connected receivers
-func (s *server) send(w http.ResponseWriter, r *http.Request, key string, mode string) {
+func (s *server) send(w http.ResponseWriter, r *http.Request, key string, id int) {
 	// Look to see if there are any receivers attached to this key
 	pipe := s.allPipes.AddSender(key)
 	defer s.allPipes.RemoveSender(key, pipe)
+
+	mode := r.URL.Query().Get("mode") // fail = failure mode | block = block mode
 
 	// in failure mode, don't allow a connection if there are no recievers
 	if mode == FailureMode && pipe.ReceiverCount() < 1 {
@@ -207,13 +200,11 @@ func (s *server) send(w http.ResponseWriter, r *http.Request, key string, mode s
 	// upload size limit
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
 
-	// copy the body to any listening receivers (see Receivers.Write)
-	_, err := io.Copy(pipe, r.Body)
+	// copy the request body to all senders
+	sender := MakeSender(pipe, id)
+	go sender.Copy(r.Body)
 
-	// if the copy made it all the way to EOF, close the receivers
-	if err == nil {
-		pipe.Close()
-	}
+	s.recv(w, r, key, id)
 }
 
 func main() {
@@ -232,6 +223,7 @@ func main() {
 	s := server{
 		allPipes: MakePipeCollection(),
 		baseUrl:  *baseurl,
+		maxId:    0,
 	}
 	http.HandleFunc("/stats", s.stats)
 	http.HandleFunc("/", s.handler)

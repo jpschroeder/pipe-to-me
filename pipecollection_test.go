@@ -8,8 +8,9 @@ func TestPipeCollectionWrite(t *testing.T) {
 	pipes.AddReceiver("key", receiver)
 
 	pipe := pipes.AddSender("key")
+	sender := MakeSender(pipe, 1)
 	input := "test input"
-	pipe.Write([]byte(input))
+	sender.Write([]byte(input))
 
 	if receiver.writer.String() != input {
 		t.Errorf("Invalid collection write: %s %s", input, receiver.writer.String())
@@ -21,15 +22,17 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 	pipes := MakePipeCollection()
 
 	p1 := pipes.AddSender("key1")
+	s1 := MakeSender(p1, 1)
 	r1 := &TestReceiver{}
 	pipes.AddReceiver("key1", r1)
 
 	p2 := pipes.AddSender("key1")
+	s2 := MakeSender(p2, 1)
 	r2 := &TestReceiver{}
 	pipes.AddReceiver("key1", r2)
 
-	p1.Write([]byte(input))
-	p2.Write([]byte(input))
+	s1.Write([]byte(input))
+	s2.Write([]byte(input))
 
 	if r1.writer.String() != (input + input) {
 		t.Errorf("Invalid collection write (r1): %s %s", input+input, r1.writer.String())

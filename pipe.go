@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 )
 
 // Hold the information for a single pipe
@@ -10,7 +9,7 @@ import (
 type Pipe struct {
 	// a list of receivers that are listening on a pipe
 	// allow receivers to be added an removed dynamically
-	receivers map[io.WriteCloser]bool
+	receivers map[RecieveWriter]bool
 	senders   int
 	bytes     int
 	written   WriteCompleteHandler
@@ -19,13 +18,13 @@ type Pipe struct {
 }
 
 // add a new receiver listening on the pipe
-func (p *Pipe) AddReceiver(w io.WriteCloser) {
+func (p *Pipe) AddReceiver(w RecieveWriter) {
 	p.receivers[w] = true
 	p.ReceiverAddedNotify()
 }
 
 // remove a previously added receiver
-func (p *Pipe) RemoveReceiver(w io.WriteCloser) {
+func (p *Pipe) RemoveReceiver(w RecieveWriter) {
 	delete(p.receivers, w)
 }
 
@@ -77,27 +76,6 @@ func (p Pipe) BytesSent() int {
 	return p.bytes
 }
 
-// write the buffer to all registered receivers
-func (p *Pipe) Write(buffer []byte) (int, error) {
-	for receiver := range p.receivers {
-		// errors from one of the receivers shouldn't affect any others
-		receiver.Write(buffer)
-	}
-	bytes := len(buffer)
-	p.bytes += bytes
-	p.written.WriteCompleted(bytes)
-	return bytes, nil
-}
-
-// close all of the registered receivers
-func (p Pipe) Close() error {
-	for receiver := range p.receivers {
-		// errors from one of the receivers shouldn't affect any others
-		receiver.Close()
-	}
-	return nil
-}
-
 func (p Pipe) String() string {
 	return fmt.Sprintf("%d receivers | %d senders | %d bytes\n",
 		p.ReceiverCount(),
@@ -107,7 +85,7 @@ func (p Pipe) String() string {
 
 func MakePipe(written WriteCompleteHandler) *Pipe {
 	return &Pipe{
-		receivers:     make(map[io.WriteCloser]bool),
+		receivers:     make(map[RecieveWriter]bool),
 		senders:       0,
 		bytes:         0,
 		written:       written,

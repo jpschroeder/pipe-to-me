@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"strings"
 )
 
@@ -41,7 +40,7 @@ func (pc *PipeCollection) DeletePipeIfEmpty(key string, pipe *Pipe) {
 }
 
 // add a new receiver to a pipe - create the pipe if it doesn't exist
-func (pc *PipeCollection) AddReceiver(key string, receiver io.WriteCloser) *Pipe {
+func (pc *PipeCollection) AddReceiver(key string, receiver RecieveWriter) *Pipe {
 	pipe := pc.FindOrCreatePipe(key)
 	pipe.AddReceiver(receiver)
 	pc.stats.ReceiverCount++
@@ -49,7 +48,7 @@ func (pc *PipeCollection) AddReceiver(key string, receiver io.WriteCloser) *Pipe
 }
 
 // remove a receiver from a pipe - remove the pipe if its empty
-func (pc *PipeCollection) RemoveReceiver(key string, receiver io.WriteCloser) {
+func (pc *PipeCollection) RemoveReceiver(key string, receiver RecieveWriter) {
 	pipe, exists := pc.pipes[key]
 	if !exists {
 		return
