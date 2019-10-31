@@ -40,13 +40,10 @@ By default:
 Fail Mode: 
 	curl -T- -s https://pipeto.me/<key>?mode=fail
 	In this mode, a send request will fail if no receivers are listening.
-	A receive request will fail if no senders are connected.
-	Fail mode should only be used on one side of the connection.
 
 Block Mode:
 	curl -T- -s --expect100-timeout 86400 https://pipeto.me/<key>?mode=block
 	In this mode, a send request will wait to send data until a receiver connects.
-	Block mode has no effect on a receive request.
 
 Maximum upload size: 64 MB
 Not allowed: anything illegal, malicious, inappropriate, etc
