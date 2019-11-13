@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"text/template"
 	"time"
 )
 
@@ -19,9 +20,10 @@ const (
 // Handlers
 
 type server struct {
-	allPipes PipeCollection
-	baseUrl  string
-	maxId    int
+	allPipes  PipeCollection
+	baseUrl   string
+	maxId     int
+	templates *template.Template
 }
 
 var keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
@@ -69,84 +71,25 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 // handler that generates a new key and gives the user information on it
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
 	newkey := randKey(keySize)
-	url := fmt.Sprintf("%s%s", s.baseUrl, newkey)
-	receive := fmt.Sprintf("curl -s %s", url)
-	send := fmt.Sprintf("curl -T- -s %s", url)
-
-	fmt.Fprintf(w, `PIPE TO ME
-==========
-
-Your randomly generated pipe address:
-	%s
-
-Input example:
-	browse to (chrome, firefox): %s
-	%s
-	hello world<enter>
-
-Pipe example:
-	separate terminal: %s
-	echo hello world | %s
-
-File transfer example:
-	%s > output.txt
-	cat input.txt | %s
-
-Watch log example:
-	browse to (chrome, firefox): %s
-	tail -f logfile | %s
-
-Data is not buffered or stored in any way.
-Data is not retrievable after it has been delivered.
-
-By default: 
-	If data is sent to the pipe when no receivers are listening, 
-	it will be dropped and is not retrievable.
-
-Fail Mode: 
-	%s?mode=fail
-	In this mode, a send request will fail if no receivers are listening.
-
-Block Mode:
-	curl -T- -s --expect100-timeout 86400 %s?mode=block
-	In this mode, a send request will wait to send data until a receiver connects.
-
-Maximum upload size: %d MB
-Not allowed: anything illegal, malicious, inappropriate, etc.
-
-This is a personal project and makes no guarantees on:
-	reliability, performance, privacy, etc.
-
-Demo: https://raw.githubusercontent.com/jpschroeder/pipe-to-me/master/demo.gif
-Source: https://github.com/jpschroeder/pipe-to-me
-`, url,
-		url, send, /* input example */
-		receive, send, /* pipe example */
-		receive, send, /* file transfer example */
-		url, send, /* watch log example */
-		send, /* fail mode */
-		url,  /* block mode */
-		maxUploadMb)
+	data := struct {
+		Url         string
+		MaxUploadMb int
+	}{
+		Url:         fmt.Sprintf("%s%s", s.baseUrl, newkey),
+		MaxUploadMb: maxUploadMb,
+	}
+	s.templates.ExecuteTemplate(w, "home", data)
 }
 
 func (s *server) stats(w http.ResponseWriter, r *http.Request) {
-	global := s.allPipes.GlobalStats()
-	gstr := fmt.Sprintf(`
-Total Pipes: 		%d
-Total Receivers: 	%d
-Total Senders: 		%d
-Total Sent: 		%d bytes
-`, global.PipeCount, global.ReceiverCount, global.SenderCount, global.BytesSent)
-
-	active := s.allPipes.ActiveStats()
-	astr := fmt.Sprintf(`
-Connected Pipes: 	%d
-Connected Receivers: 	%d
-Connected Senders: 	%d
-Connected Sent: 	%d bytes
-`, active.PipeCount, active.ReceiverCount, active.SenderCount, active.BytesSent)
-
-	fmt.Fprintf(w, "STATS\n=====\n%s%s\n", astr, gstr)
+	data := struct {
+		Global PipeStats
+		Active PipeStats
+	}{
+		Global: s.allPipes.GlobalStats(),
+		Active: s.allPipes.ActiveStats(),
+	}
+	s.templates.ExecuteTemplate(w, "stats", data)
 }
 
 // receive data from any senders
@@ -163,7 +106,6 @@ func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, id int
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	//flusher.Flush()
 
 	select {
 	// the receiver disconnected before completion
@@ -227,9 +169,10 @@ func main() {
 	flag.Parse()
 
 	s := server{
-		allPipes: MakePipeCollection(),
-		baseUrl:  *baseurl,
-		maxId:    0,
+		allPipes:  MakePipeCollection(),
+		baseUrl:   *baseurl,
+		maxId:     0,
+		templates: templates(),
 	}
 	http.HandleFunc("/stats", s.stats)
 	http.HandleFunc("/", s.handler)

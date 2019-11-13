@@ -78,6 +78,10 @@ type PipeStats struct {
 	BytesSent     int
 }
 
+func (ps PipeStats) MegaBytesSent() int {
+	return ps.BytesSent / 1000000
+}
+
 func MakeStats() PipeStats {
 	return PipeStats{
 		PipeCount:     0,
