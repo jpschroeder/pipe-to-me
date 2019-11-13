@@ -10,49 +10,62 @@ Stream data over http using curl.  Hosted at [pipeto.me](https://pipeto.me/)
 ![](demo.gif)
 
 ```
-Your randomly generated pipe address:
-	https://pipeto.me/<key>
+NAME
+    pipeto.me: streaming data over http
 
-Input example:
-	browse to (chrome, firefox): https://pipeto.me/<key>
-	curl -T- -s https://pipeto.me/<key>
-	hello world<enter>
+SYNOPSIS
+    Randomly generated pipe address:    https://pipeto.me/<key>
 
-Pipe example:
-	separate terminal: curl -s https://pipeto.me/<key>
-	echo hello world | curl -T- -s https://pipeto.me/<key>
+EXAMPLES
+    Input example:
 
-File transfer example:
-	curl -s https://pipeto.me/<key> > output.txt
-	cat input.txt | curl -T- -s https://pipeto.me/<key>
+    browse to (chrome, firefox): https://pipeto.me/<key>
+    $ curl -T- -s https://pipeto.me/<key>
+    hello world<enter>
 
-Watch log example:
-	browse to (chrome, firefox): https://pipeto.me/<key>
-	tail -f logfile | curl -T- -s https://pipeto.me/<key>
+    Pipe example:
 
-Data is not buffered or stored in any way.
-Data is not retrievable after it has been delivered.
+    (term1)$ curl -s https://pipeto.me/<key>
+    (term2)$ echo hello world | curl -T- -s https://pipeto.me/<key>
 
-By default: 
-	If data is sent to the pipe when no receivers are listening, 
-	it will be dropped and is not retrievable.
+    File transfer example:
 
-Fail Mode: 
-	curl -T- -s https://pipeto.me/<key>?mode=fail
-	In this mode, a send request will fail if no receivers are listening.
+    (term1)$ curl -s https://pipeto.me/<key> > output.txt
+    (term2)$ cat input.txt | curl -T- -s https://pipeto.me/<key>
 
-Block Mode:
-	curl -T- -s --expect100-timeout 86400 https://pipeto.me/<key>?mode=block
-	In this mode, a send request will wait to send data until a receiver connects.
+    Watch log example:
 
-Maximum upload size: 64 MB
-Not allowed: anything illegal, malicious, inappropriate, etc
+    browse to (chrome, firefox): https://pipeto.me/<key>
+    $ tail -f logfile | curl -T- -s https://pipeto.me/<key>
 
-This is a personal project and makes no guarantees on:
-	reliability, performance, privacy, etc
+DESCRIPTION
+    Data is not buffered or stored in any way.
+    Data is not retrievable after it has been delivered.
 
-Demo: https://raw.githubusercontent.com/jpschroeder/pipe-to-me/master/demo.gif
-Source: https://github.com/jpschroeder/pipe-to-me
+    Maximum upload size: 64 MB
+    Not allowed: anything illegal, malicious, inappropriate, etc.
+
+    This is a personal project and makes no guarantees on:
+    reliability, performance, privacy, etc.
+
+    Default Mode:
+
+    If data is sent to the pipe when no receivers are listening, 
+    it will be dropped and is not retrievable.
+
+    Fail Mode: 
+
+    $ curl -T- -s https://pipeto.me/<key>?mode=fail
+    In this mode, a send request will fail if no receivers are listening.
+
+    Block Mode:
+
+    $ curl -T- -s --expect100-timeout 86400 https://pipeto.me/<key>?mode=block
+    In this mode, a send request will wait to send data until a receiver connects.
+
+SEE ALSO
+    Demo: https://raw.githubusercontent.com/jpschroeder/pipe-to-me/master/demo.gif
+    Source: https://github.com/jpschroeder/pipe-to-me
 ```
 
 ## Installation
