@@ -71,15 +71,15 @@ pipeto.me(1)                     PIPE TO ME                         pipeto.me(1)
 
 STATISTICS
 
-Connected Pipes: 	{{ .Active.PipeCount }}
-Connected Receivers: 	{{ .Active.ReceiverCount }}
-Connected Senders: 	{{ .Active.SenderCount }}
-Connected Sent: 	{{ .Active.MegaBytesSent }} MB
+    Connected Pipes:        {{ .Active.PipeCount }}
+    Connected Receivers:    {{ .Active.ReceiverCount }}
+    Connected Senders:      {{ .Active.SenderCount }}
+    Connected Sent:         {{ .Active.MegaBytesSent }} MB
 
-Total Pipes: 		{{ .Global.PipeCount }}
-Total Receivers: 	{{ .Global.ReceiverCount }}
-Total Senders: 		{{ .Global.SenderCount }}
-Total Sent: 		{{ .Global.MegaBytesSent }} MB
+    Total Pipes:            {{ .Global.PipeCount }}
+    Total Receivers:        {{ .Global.ReceiverCount }}
+    Total Senders:          {{ .Global.SenderCount }}
+    Total Sent:             {{ .Global.MegaBytesSent }} MB
 	`))
 
 	return tmpl

@@ -88,7 +88,7 @@ You can build the project under linux (or Windows Subsystem for Linux) and just 
 
 You can then run the program directly or use systemd to install it as a service and keep it running.
 
-Customize the `pipe-to-me.service` file in the repo for your server and copy it to `/lib/systemd/system/pipe-to-me.service` (ubuntu)
+Customize the `scripts/pipe-to-me.service` file in the repo for your server and copy it to `/lib/systemd/system/pipe-to-me.service` (ubuntu)
 
 Start the app with: `systemctl start pipe-to-me`  
 Enable it on boot with: `systemctl enable pipe-to-me`  
@@ -101,7 +101,7 @@ You can host the application using go directly, or you can listen on a local por
 
 Make sure that nginx is installed with: `apt-get install nginx`
 
-Customize `pipe-to-me.nginx.conf` and copy it to `/etc/nginx/sites-available/pipe-to-me.nginx.conf`
+Customize `scripts/pipe-to-me.nginx.conf` and copy it to `/etc/nginx/sites-available/pipe-to-me.nginx.conf`
 
 Remove the default website configuration: `rm /etc/nginx/sites-enabled/default`
 
