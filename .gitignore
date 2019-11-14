@@ -28,3 +28,6 @@ debug
 
 # Exclude binaries
 /pipe-to-me
+/clients/client
+
+*.o

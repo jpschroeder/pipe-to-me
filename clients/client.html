@@ -1,0 +1,48 @@
+<html>
+	<head>
+	</head>
+	<body>
+		<form>
+			<input id="url" type="text" placeholder="url" />
+			<input id="connect" type="submit" value="connect" />
+		</form>	
+		<pre id="output"></pre>
+
+		<script type="text/javascript">
+			const output = document.getElementById('output');
+			let request = null;
+			let abort = null;
+
+			document.getElementById("connect").onclick = (e) => {
+				e.preventDefault();
+				const url = document.getElementById('url').value;
+				if (!url) {
+					output.innerText += 'url: https://pipeto.me/<code>\n';
+					return;
+				}
+
+				if (request) {
+					abort.abort();
+				}
+
+				output.innerText += `connected to: ${url}\n`;
+
+				// https://bugs.chromium.org/p/chromium/issues/detail?id=688906
+				abort = new AbortController();
+				request = new Request(url, {method: 'GET', signal: abort.signal});
+				fetch(request).then(response => {
+					const reader = response.body.getReader();
+					reader.read().then(function processText({ done, value }) {
+						if (done) {
+							output.innerText += 'request complete';
+							return;
+						}
+						var str = new TextDecoder("utf-8").decode(value);
+						output.innerText += str;
+						return reader.read().then(processText);
+					});
+				});
+			};
+		</script>
+	</body>
+</html>
