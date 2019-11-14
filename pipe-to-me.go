@@ -41,6 +41,10 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "User-agent: *\nDisallow: /")
 		return
 	}
+	if r.URL.Path == "/new" {
+		fmt.Fprintf(w, "%s%s", s.baseUrl, randKey(keySize))
+		return
+	}
 
 	// /<key>
 	m := keyRegex.FindStringSubmatch(r.URL.Path)
