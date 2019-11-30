@@ -17,24 +17,30 @@ SYNOPSIS
 EXAMPLES
     Input example:
 
-    browse to (chrome, firefox): {{ .Url }}
-    $ curl -T- -s {{ .Url }}
-    hello world<enter>
+    (chrome/firefox): {{ .Url }}
+    (terminal)$ curl -T- {{ .Url }}
+                hello world<enter>
 
     Pipe example:
 
-    (term1)$ curl -s {{ .Url }}
-    (term2)$ echo hello world | curl -T- -s {{ .Url }}
+    (terminal1)$ curl {{ .Url }}
+    (terminal2)$ echo hello world | curl -T- {{ .Url }}
+
+    Chat example(curl>=7.68):
+
+    (terminal1)$ curl -T. {{ .Url }}
+    (terminal2)$ curl -T. {{ .Url }}
+                 hello world<enter>
 
     File transfer example:
 
-    (term1)$ curl -s {{ .Url }} > output.txt
-    (term2)$ cat input.txt | curl -T- -s {{ .Url }}
+    (terminal1)$ curl {{ .Url }} > output.txt
+    (terminal2)$ cat input.txt | curl -T- {{ .Url }}
 
     Watch log example:
 
-    browse to (chrome, firefox): {{ .Url }}
-    $ tail -f logfile | curl -T- -s {{ .Url }}
+    (chrome/firefox): {{ .Url }}
+    (terminal)$ tail -f logfile | curl -T- {{ .Url }}
 
 DESCRIPTION
     Data is not buffered or stored in any way.
@@ -53,12 +59,12 @@ DESCRIPTION
 
     Fail Mode: 
 
-    $ curl -T- -s {{ .Url }}?mode=fail
+    $ curl -T- {{ .Url }}?mode=fail
     In this mode, a send request will fail if no receivers are listening.
 
     Block Mode:
 
-    $ curl -T- -s --expect100-timeout 86400 {{ .Url }}?mode=block
+    $ curl -T- --expect100-timeout 86400 {{ .Url }}?mode=block
     In this mode, a send request will wait to send data until a receiver connects.
 
 SEE ALSO
@@ -74,12 +80,12 @@ STATISTICS
     Connected Pipes:        {{ .Active.PipeCount }}
     Connected Receivers:    {{ .Active.ReceiverCount }}
     Connected Senders:      {{ .Active.SenderCount }}
-    Connected Sent:         {{ .Active.MegaBytesSent }} MB
+    Connected Sent:         {{ .Active.BytesSent }} ({{ .Active.MegaBytesSent }} MB)
 
     Total Pipes:            {{ .Global.PipeCount }}
     Total Receivers:        {{ .Global.ReceiverCount }}
     Total Senders:          {{ .Global.SenderCount }}
-    Total Sent:             {{ .Global.MegaBytesSent }} MB
+    Total Sent:             {{ .Global.BytesSent }} ({{ .Global.MegaBytesSent }} MB)
 	`))
 
 	return tmpl

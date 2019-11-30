@@ -19,24 +19,30 @@ SYNOPSIS
 EXAMPLES
     Input example:
 
-    browse to (chrome, firefox): https://pipeto.me/<key>
-    $ curl -T- -s https://pipeto.me/<key>
-    hello world<enter>
+    (chrome/firefox): https://pipeto.me/<key>
+    (terminal)$ curl -T- https://pipeto.me/<key>
+                hello world<enter>
 
     Pipe example:
 
-    (term1)$ curl -s https://pipeto.me/<key>
-    (term2)$ echo hello world | curl -T- -s https://pipeto.me/<key>
+    (terminal1)$ curl https://pipeto.me/<key>
+    (terminal2)$ echo hello world | curl -T- https://pipeto.me/<key>
+
+    Chat example(curl>=7.68):
+
+    (terminal1)$ curl -T. https://pipeto.me/<key>
+    (terminal2)$ curl -T. https://pipeto.me/<key>
+                 hello world<enter>
 
     File transfer example:
 
-    (term1)$ curl -s https://pipeto.me/<key> > output.txt
-    (term2)$ cat input.txt | curl -T- -s https://pipeto.me/<key>
+    (terminal1)$ curl https://pipeto.me/<key> > output.txt
+    (terminal2)$ cat input.txt | curl -T- https://pipeto.me/<key>
 
     Watch log example:
 
-    browse to (chrome, firefox): https://pipeto.me/<key>
-    $ tail -f logfile | curl -T- -s https://pipeto.me/<key>
+    (chrome/firefox): https://pipeto.me/<key>
+    (terminal)$ tail -f logfile | curl -T- https://pipeto.me/<key>
 
 DESCRIPTION
     Data is not buffered or stored in any way.
@@ -55,12 +61,12 @@ DESCRIPTION
 
     Fail Mode: 
 
-    $ curl -T- -s https://pipeto.me/<key>?mode=fail
+    $ curl -T- https://pipeto.me/<key>?mode=fail
     In this mode, a send request will fail if no receivers are listening.
 
     Block Mode:
 
-    $ curl -T- -s --expect100-timeout 86400 https://pipeto.me/<key>?mode=block
+    $ curl -T- --expect100-timeout 86400 https://pipeto.me/<key>?mode=block
     In this mode, a send request will wait to send data until a receiver connects.
 
 SEE ALSO
