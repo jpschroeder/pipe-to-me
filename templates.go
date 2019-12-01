@@ -5,8 +5,7 @@ import "text/template"
 func templates() *template.Template {
 	tmpl := template.Must(template.New("").Parse(""))
 
-	template.Must(tmpl.New("home").Parse(`
-pipeto.me(1)                     PIPE TO ME                         pipeto.me(1)
+	template.Must(tmpl.New("home").Parse(`pipeto.me(1)                     PIPE TO ME                         pipeto.me(1)
 
 NAME
     pipeto.me: streaming data over http
@@ -72,8 +71,7 @@ SEE ALSO
     Source: https://github.com/jpschroeder/pipe-to-me
 	`))
 
-	template.Must(tmpl.New("stats").Parse(`
-pipeto.me(1)                     PIPE TO ME                         pipeto.me(1)
+	template.Must(tmpl.New("stats").Parse(`pipeto.me(1)                     PIPE TO ME                         pipeto.me(1)
 
 STATISTICS
 
