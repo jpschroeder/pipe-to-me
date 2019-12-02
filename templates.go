@@ -11,35 +11,35 @@ NAME
     pipeto.me: streaming data over http
 
 SYNOPSIS
-    Randomly generated pipe address:                  {{ .Url }}
+    Randomly generated pipe address:                  {{ .URL }}
 
 EXAMPLES
     Input example:
 
-    (chrome/firefox): {{ .Url }}
-    (terminal)$ curl -T- {{ .Url }}
+    (chrome/firefox): {{ .URL }}
+    (terminal)$ curl -T- {{ .URL }}
                 hello world<enter>
 
     Pipe example:
 
-    (terminal1)$ curl {{ .Url }}
-    (terminal2)$ echo hello world | curl -T- {{ .Url }}
+    (terminal1)$ curl {{ .URL }}
+    (terminal2)$ echo hello world | curl -T- {{ .URL }}
 
     Chat example(curl>=7.68):
 
-    (terminal1)$ curl -T. {{ .Url }}
-    (terminal2)$ curl -T. {{ .Url }}
+    (terminal1)$ curl -T. {{ .URL }}
+    (terminal2)$ curl -T. {{ .URL }}
                  hello world<enter>
 
     File transfer example:
 
-    (terminal1)$ curl {{ .Url }} > output.txt
-    (terminal2)$ cat input.txt | curl -T- {{ .Url }}
+    (terminal1)$ curl {{ .URL }} > output.txt
+    (terminal2)$ cat input.txt | curl -T- {{ .URL }}
 
     Watch log example:
 
-    (chrome/firefox): {{ .Url }}
-    (terminal)$ tail -f logfile | curl -T- {{ .Url }}
+    (chrome/firefox): {{ .URL }}
+    (terminal)$ tail -f logfile | curl -T- {{ .URL }}
 
 DESCRIPTION
     Data is not buffered or stored in any way.
@@ -58,12 +58,12 @@ DESCRIPTION
 
     Fail Mode: 
 
-    $ curl -T- {{ .Url }}?mode=fail
+    $ curl -T- {{ .URL }}?mode=fail
     In this mode, a send request will fail if no receivers are listening.
 
     Block Mode:
 
-    $ curl -T- --expect100-timeout 86400 {{ .Url }}?mode=block
+    $ curl -T- --expect100-timeout 86400 {{ .URL }}?mode=block
     In this mode, a send request will wait to send data until a receiver connects.
 
 SEE ALSO

@@ -13,16 +13,18 @@ import (
 const (
 	maxUploadMb = 64
 	keySize     = 8
-	FailureMode = "fail"  // don't allow a connection if there is no one on the other end
-	BlockMode   = "block" // don't receive data until there is a connection on the other end
+	// FailureMode will not allow a connection if there is no one on the other end
+	FailureMode = "fail"
+	// BlockMode will not receive data until there is a connection on the other end
+	BlockMode = "block"
 )
 
 // Handlers
 
 type server struct {
 	allPipes  PipeCollection
-	baseUrl   string
-	maxId     int
+	baseURL   string
+	maxID     int
 	templates *template.Template
 }
 
@@ -42,7 +44,7 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/new" {
-		fmt.Fprintf(w, "%s%s", s.baseUrl, randKey(keySize))
+		fmt.Fprintf(w, "%s%s", s.baseURL, randKey(keySize))
 		return
 	}
 
@@ -54,14 +56,14 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 	}
 	key := m[1]
 
-	s.maxId++
+	s.maxID++
 
 	if r.Method == "GET" {
-		s.recv(w, r, key, s.maxId)
+		s.recv(w, r, key, s.maxID)
 		return
 	}
 	if r.Method == "POST" || r.Method == "PUT" {
-		s.send(w, r, key, s.maxId)
+		s.send(w, r, key, s.maxID)
 		return
 	}
 	if r.Method == "OPTIONS" {
@@ -76,10 +78,10 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
 	newkey := randKey(keySize)
 	data := struct {
-		Url         string
+		URL         string
 		MaxUploadMb int
 	}{
-		Url:         fmt.Sprintf("%s%s", s.baseUrl, newkey),
+		URL:         fmt.Sprintf("%s%s", s.baseURL, newkey),
 		MaxUploadMb: maxUploadMb,
 	}
 	s.templates.ExecuteTemplate(w, "home", data)
@@ -174,8 +176,8 @@ func main() {
 
 	s := server{
 		allPipes:  MakePipeCollection(),
-		baseUrl:   *baseurl,
-		maxId:     0,
+		baseURL:   *baseurl,
+		maxID:     0,
 		templates: templates(),
 	}
 	http.HandleFunc("/stats", s.stats)

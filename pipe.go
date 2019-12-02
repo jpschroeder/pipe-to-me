@@ -4,8 +4,7 @@ import (
 	"fmt"
 )
 
-// Hold the information for a single pipe
-
+// Pipe holds the information for a single pipe
 type Pipe struct {
 	// a list of receivers that are listening on a pipe
 	// allow receivers to be added an removed dynamically
@@ -17,35 +16,35 @@ type Pipe struct {
 	receiverAdded map[chan bool]bool
 }
 
-// add a new receiver listening on the pipe
+// AddReceiver adds a new receiver listening on the pipe
 func (p *Pipe) AddReceiver(w RecieveWriter) {
 	p.receivers[w] = true
 	p.ReceiverAddedNotify()
 }
 
-// remove a previously added receiver
+// RemoveReceiver removes a previously added receiver
 func (p *Pipe) RemoveReceiver(w RecieveWriter) {
 	delete(p.receivers, w)
 }
 
-// the number of receivers on the pipe
+// ReceiverCount returns the number of receivers on the pipe
 func (p Pipe) ReceiverCount() int {
 	return len(p.receivers)
 }
 
-// listen for new receivers
+// ReceiverAddedSubscribe listens for new receivers
 func (p *Pipe) ReceiverAddedSubscribe() chan bool {
 	channel := make(chan bool)
 	p.receiverAdded[channel] = true
 	return channel
 }
 
-// stop listening for new receivers
+// ReceiverAddedUnSubscribe stops listening for new receivers
 func (p *Pipe) ReceiverAddedUnSubscribe(channel chan bool) {
 	delete(p.receiverAdded, channel)
 }
 
-// notify all listeners that a receiver was added
+// ReceiverAddedNotify notifies all listeners that a receiver was added
 func (p *Pipe) ReceiverAddedNotify() {
 	for channel := range p.receiverAdded {
 		// non-blocking
@@ -56,22 +55,22 @@ func (p *Pipe) ReceiverAddedNotify() {
 	}
 }
 
-// add a new sender connected to send data on the pipe (informational)
+// AddSender adds a new sender connected to send data on the pipe (informational)
 func (p *Pipe) AddSender() {
 	p.senders++
 }
 
-// remove a sender connected to the pipe (informational)
+// RemoveSender removes a sender connected to the pipe (informational)
 func (p *Pipe) RemoveSender() {
 	p.senders--
 }
 
-// the number of senders on the pipe
+// SenderCount returns the number of senders on the pipe
 func (p Pipe) SenderCount() int {
 	return p.senders
 }
 
-// the number of bytes sent through the pipe
+// BytesSent returns the number of bytes sent through the pipe
 func (p Pipe) BytesSent() int {
 	return p.bytes
 }
@@ -83,6 +82,7 @@ func (p Pipe) String() string {
 		p.BytesSent())
 }
 
+// MakePipe creates the struct for a pipe
 func MakePipe(written WriteCompleteHandler) *Pipe {
 	return &Pipe{
 		receivers:     make(map[RecieveWriter]bool),

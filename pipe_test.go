@@ -10,7 +10,7 @@ type TestReceiver struct {
 	closeCount int
 }
 
-func (r TestReceiver) Id() int {
+func (r TestReceiver) ID() int {
 	return 0
 }
 

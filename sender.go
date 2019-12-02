@@ -4,18 +4,17 @@ import (
 	"io"
 )
 
-// Hold the information for a single sender
-
+// Sender holds the information for a single sender
 type Sender struct {
 	id   int
 	pipe *Pipe
 }
 
-// write the buffer to all registered receivers
+// Write the buffer to all registered receivers
 func (s Sender) Write(buffer []byte) (int, error) {
 	for receiver := range s.pipe.receivers {
 		// don't send the message to yourself
-		if receiver.Id() != s.id {
+		if receiver.ID() != s.id {
 			// errors from one of the receivers shouldn't affect any others
 			receiver.Write(buffer)
 		}
@@ -26,7 +25,7 @@ func (s Sender) Write(buffer []byte) (int, error) {
 	return bytes, nil
 }
 
-// close all of the registered receivers
+// Close all of the registered receivers
 func (s Sender) Close() error {
 	for receiver := range s.pipe.receivers {
 		// errors from one of the receivers shouldn't affect any others
@@ -35,6 +34,7 @@ func (s Sender) Close() error {
 	return nil
 }
 
+// Copy transfers bytes from the reader to the attached pipe
 func (s Sender) Copy(reader io.Reader) {
 	// copy the body to any listening receivers (see Receivers.Write)
 	_, err := io.Copy(s, reader)
@@ -45,6 +45,7 @@ func (s Sender) Copy(reader io.Reader) {
 	}
 }
 
+// MakeSender creates a new sender
 func MakeSender(p *Pipe, id int) Sender {
 	return Sender{
 		pipe: p,
