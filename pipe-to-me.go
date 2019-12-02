@@ -150,11 +150,11 @@ func (s *server) send(w http.ResponseWriter, r *http.Request, key string, id int
 	}
 
 	// upload size limit
-	r.Body = http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
+	body := http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
 
 	// copy the request body to all senders
 	sender := MakeSender(pipe, id)
-	go sender.Copy(r.Body)
+	go sender.Copy(body)
 
 	s.recv(w, r, key, id)
 }
