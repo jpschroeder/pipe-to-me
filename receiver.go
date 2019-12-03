@@ -10,21 +10,28 @@ import (
 type RecieveWriter interface {
 	io.WriteCloser
 	ID() int
+	Interactive() bool
 }
 
 // Receiver holds the information for a single receiver
 // a writer that is automatically flushed back to the receiver client
 // and a notification channel when it is closed
 type Receiver struct {
-	id      int
-	writer  io.Writer
-	flusher http.Flusher
-	done    chan bool
+	id          int
+	interactive bool
+	writer      io.Writer
+	flusher     http.Flusher
+	done        chan bool
 }
 
 // ID returns the identifier for this reader
 func (r Receiver) ID() int {
 	return r.id
+}
+
+// Interactive returns whether or not to show connect/disconnect messages to the receiver
+func (r Receiver) Interactive() bool {
+	return r.interactive
 }
 
 // Write a single received buffer to the receiver and flush it back to the client
@@ -47,11 +54,12 @@ func (r Receiver) CloseNotify() <-chan bool {
 }
 
 // MakeReceiver creates a new receiver struct
-func MakeReceiver(w io.Writer, f http.Flusher, id int) Receiver {
+func MakeReceiver(w io.Writer, f http.Flusher, id int, interactive bool) Receiver {
 	return Receiver{
-		writer:  w,
-		flusher: f,
-		id:      id,
-		done:    make(chan bool),
+		writer:      w,
+		flusher:     f,
+		id:          id,
+		interactive: interactive,
+		done:        make(chan bool),
 	}
 }

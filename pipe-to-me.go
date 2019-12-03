@@ -103,8 +103,11 @@ func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, id int
 	// this is used to flush output back to the client as it is received
 	flusher, _ := w.(http.Flusher)
 
+	// the interactive flag is used to determine whether or not to send connect/disconnect notifications
+	interactive := (r.URL.Query().Get("i") != "")
+
 	// store the active streams by key so that data can be sent by another request
-	receiver := MakeReceiver(w, flusher, id)
+	receiver := MakeReceiver(w, flusher, id, interactive)
 	s.allPipes.AddReceiver(key, receiver)
 	defer s.allPipes.RemoveReceiver(key, receiver)
 

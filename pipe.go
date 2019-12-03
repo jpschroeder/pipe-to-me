@@ -19,12 +19,14 @@ type Pipe struct {
 // AddReceiver adds a new receiver listening on the pipe
 func (p *Pipe) AddReceiver(w RecieveWriter) {
 	p.receivers[w] = true
+	p.Write([]byte(fmt.Sprintf("Client %d connected\n", w.ID())), w.ID(), true)
 	p.ReceiverAddedNotify()
 }
 
 // RemoveReceiver removes a previously added receiver
 func (p *Pipe) RemoveReceiver(w RecieveWriter) {
 	delete(p.receivers, w)
+	p.Write([]byte(fmt.Sprintf("Client %d disconnected\n", w.ID())), w.ID(), true)
 }
 
 // ReceiverCount returns the number of receivers on the pipe
@@ -73,6 +75,38 @@ func (p Pipe) SenderCount() int {
 // BytesSent returns the number of bytes sent through the pipe
 func (p Pipe) BytesSent() int {
 	return p.bytes
+}
+
+// Write the buffer to all registered receivers
+func (p *Pipe) Write(buffer []byte, senderID int, interactive bool) (int, error) {
+	for receiver := range p.receivers {
+		// don't send the message to yourself
+		if receiver.ID() == senderID {
+			continue
+		}
+		// if this is an interactive message and the receiver isn't an interactive receiver
+		if interactive && !receiver.Interactive() {
+			continue
+		}
+		// errors from one of the receivers shouldn't affect any others
+		receiver.Write(buffer)
+	}
+	bytes := len(buffer)
+	if !interactive {
+		// don't track interactive messages against the stats
+		p.bytes += bytes
+		p.written.WriteCompleted(bytes)
+	}
+	return bytes, nil
+}
+
+// Close all of the registered receivers
+func (p *Pipe) Close() error {
+	for receiver := range p.receivers {
+		// errors from one of the receivers shouldn't affect any others
+		receiver.Close()
+	}
+	return nil
 }
 
 func (p Pipe) String() string {

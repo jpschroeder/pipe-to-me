@@ -12,26 +12,12 @@ type Sender struct {
 
 // Write the buffer to all registered receivers
 func (s Sender) Write(buffer []byte) (int, error) {
-	for receiver := range s.pipe.receivers {
-		// don't send the message to yourself
-		if receiver.ID() != s.id {
-			// errors from one of the receivers shouldn't affect any others
-			receiver.Write(buffer)
-		}
-	}
-	bytes := len(buffer)
-	s.pipe.bytes += bytes
-	s.pipe.written.WriteCompleted(bytes)
-	return bytes, nil
+	return s.pipe.Write(buffer, s.id, false)
 }
 
 // Close all of the registered receivers
 func (s Sender) Close() error {
-	for receiver := range s.pipe.receivers {
-		// errors from one of the receivers shouldn't affect any others
-		receiver.Close()
-	}
-	return nil
+	return s.pipe.Close()
 }
 
 // Copy transfers bytes from the reader to the attached pipe

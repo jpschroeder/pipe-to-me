@@ -14,6 +14,10 @@ func (r TestReceiver) ID() int {
 	return 0
 }
 
+func (r TestReceiver) Interactive() bool {
+	return false
+}
+
 func (r *TestReceiver) Write(p []byte) (n int, err error) {
 	n, err = r.writer.Write(p)
 	return
