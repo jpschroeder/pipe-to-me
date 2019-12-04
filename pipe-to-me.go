@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 	"text/template"
 	"time"
@@ -13,10 +14,6 @@ import (
 const (
 	maxUploadMb = 64
 	keySize     = 8
-	// FailureMode will not allow a connection if there is no one on the other end
-	FailureMode = "fail"
-	// BlockMode will not receive data until there is a connection on the other end
-	BlockMode = "block"
 )
 
 // Handlers
@@ -29,6 +26,14 @@ type server struct {
 }
 
 var keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
+
+type params struct {
+	key         string
+	id          int  // unique id for this request
+	failure     bool // failure mode will not allow a connection if there is no one on the other end
+	block       bool // block mode will not receive data until there is a connection on the other end
+	interactive bool // interactive mode will send notifications down the pipe on connect/disconnect
+}
 
 // the root http handler
 func (s *server) handler(w http.ResponseWriter, r *http.Request) {
@@ -47,31 +52,48 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%s%s", s.baseURL, randKey(keySize))
 		return
 	}
-
-	// /<key>
-	m := keyRegex.FindStringSubmatch(r.URL.Path)
-	if m == nil {
-		http.NotFound(w, r)
-		return
-	}
-	key := m[1]
-
-	s.maxID++
-
-	if r.Method == "GET" {
-		s.recv(w, r, key, s.maxID)
-		return
-	}
-	if r.Method == "POST" || r.Method == "PUT" {
-		s.send(w, r, key, s.maxID)
-		return
-	}
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT")
 		return
 	}
+
+	params := parseParams(r.URL)
+	if params == nil {
+		http.NotFound(w, r)
+		return
+	}
+	s.maxID++
+	params.id = s.maxID
+
+	if r.Method == "GET" {
+		s.recv(w, r, params)
+		return
+	}
+	if r.Method == "POST" || r.Method == "PUT" {
+		s.send(w, r, params)
+		return
+	}
 	http.Error(w, "Invalid Method", http.StatusNotFound)
+}
+
+func parseParams(url *url.URL) *params {
+	// /<key>
+	m := keyRegex.FindStringSubmatch(url.Path)
+	if m == nil {
+		return nil
+	}
+	key := m[1]
+	query := url.Query()
+	exists := func(p string) bool {
+		return len(query.Get(p)) > 0
+	}
+	return &params{
+		key:         key,
+		failure:     exists("f") || exists("fail") || query.Get("mode") == "fail",
+		block:       exists("b") || exists("block") || query.Get("mode") == "block",
+		interactive: exists("i") || exists("interactive"),
+	}
 }
 
 // handler that generates a new key and gives the user information on it
@@ -99,22 +121,31 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 }
 
 // receive data from any senders
-func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, id int) {
+func (s *server) recv(w http.ResponseWriter, r *http.Request, p *params) {
 	// this is used to flush output back to the client as it is received
 	flusher, _ := w.(http.Flusher)
 
-	// the interactive flag is used to determine whether or not to send connect/disconnect notifications
-	interactive := (r.URL.Query().Get("i") != "")
-
 	// store the active streams by key so that data can be sent by another request
-	receiver := MakeReceiver(w, flusher, id, interactive)
-	s.allPipes.AddReceiver(key, receiver)
-	defer s.allPipes.RemoveReceiver(key, receiver)
+	receiver := MakeReceiver(w, flusher, p.id, p.interactive)
+	pipe := s.allPipes.AddReceiver(p.key, receiver)
+	defer s.allPipes.RemoveReceiver(p.key, receiver)
+
+	// in failure mode, don't allow a connection if there are no senders
+	if p.failure && pipe.SenderCount() < 1 {
+		http.Error(w, "No senders connected", http.StatusInternalServerError)
+		return
+	}
 
 	// this is required so that data is streamed back to the client
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// in interactive mode, send a notification message
+	if p.interactive {
+		fmt.Fprintf(w, "Connection suceeded: %d other client(s)\n", pipe.ReceiverCount()-1)
+		flusher.Flush()
+	}
 
 	select {
 	// the receiver disconnected before completion
@@ -125,21 +156,19 @@ func (s *server) recv(w http.ResponseWriter, r *http.Request, key string, id int
 }
 
 // send data to any connected receivers
-func (s *server) send(w http.ResponseWriter, r *http.Request, key string, id int) {
+func (s *server) send(w http.ResponseWriter, r *http.Request, p *params) {
 	// Look to see if there are any receivers attached to this key
-	pipe := s.allPipes.AddSender(key)
-	defer s.allPipes.RemoveSender(key, pipe)
-
-	mode := r.URL.Query().Get("mode") // fail = failure mode | block = block mode
+	pipe := s.allPipes.AddSender(p.key)
+	defer s.allPipes.RemoveSender(p.key, pipe)
 
 	// in failure mode, don't allow a connection if there are no recievers
-	if mode == FailureMode && pipe.ReceiverCount() < 1 {
+	if p.failure && pipe.ReceiverCount() < 1 {
 		http.Error(w, "No receivers connected", http.StatusExpectationFailed)
 		return
 	}
 
 	// in block mode, wait for a receiver to connect
-	if mode == BlockMode && pipe.ReceiverCount() < 1 {
+	if p.block && pipe.ReceiverCount() < 1 {
 		receiverAdded := pipe.ReceiverAddedSubscribe()
 		defer pipe.ReceiverAddedUnSubscribe(receiverAdded)
 		select {
@@ -158,10 +187,14 @@ func (s *server) send(w http.ResponseWriter, r *http.Request, key string, id int
 	body := http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
 
 	// copy the request body to all senders
-	sender := MakeSender(pipe, id)
+	sender := MakeSender(pipe, p.id)
 	go sender.Copy(body)
 
-	s.recv(w, r, key, id)
+	// The 100-continue message is sent on the first read from the Copy goroutine above
+	// A short delay is needed to ensure that it goes out before any data is writen back
+	time.Sleep(10 * time.Millisecond)
+
+	s.recv(w, r, p)
 }
 
 func main() {
