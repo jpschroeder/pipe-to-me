@@ -18,6 +18,10 @@ func (r TestReceiver) Interactive() bool {
 	return false
 }
 
+func (r TestReceiver) Username() string {
+	return ""
+}
+
 func (r *TestReceiver) Write(p []byte) (n int, err error) {
 	n, err = r.writer.Write(p)
 	return

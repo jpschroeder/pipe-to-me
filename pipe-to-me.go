@@ -1,12 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"regexp"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -29,10 +30,11 @@ var keyRegex = regexp.MustCompile("^/([a-zA-Z0-9]+)$")
 
 type params struct {
 	key         string
-	id          int  // unique id for this request
-	failure     bool // failure mode will not allow a connection if there is no one on the other end
-	block       bool // block mode will not receive data until there is a connection on the other end
-	interactive bool // interactive mode will send notifications down the pipe on connect/disconnect
+	id          int    // unique id for this request
+	failure     bool   // failure mode will not allow a connection if there is no one on the other end
+	block       bool   // block mode will not receive data until there is a connection on the other end
+	interactive bool   // interactive mode will send notifications down the pipe on connect/disconnect
+	username    string // username passed via basic auth or "" if empty
 }
 
 // the root http handler
@@ -58,7 +60,7 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params := parseParams(r.URL)
+	params := parseParams(r)
 	if params == nil {
 		http.NotFound(w, r)
 		return
@@ -77,14 +79,14 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Invalid Method", http.StatusNotFound)
 }
 
-func parseParams(url *url.URL) *params {
+func parseParams(r *http.Request) *params {
 	// /<key>
-	m := keyRegex.FindStringSubmatch(url.Path)
+	m := keyRegex.FindStringSubmatch(r.URL.Path)
 	if m == nil {
 		return nil
 	}
 	key := m[1]
-	query := url.Query()
+	query := r.URL.Query()
 	exists := func(p string) bool {
 		return len(query.Get(p)) > 0
 	}
@@ -93,7 +95,18 @@ func parseParams(url *url.URL) *params {
 		failure:     exists("f") || exists("fail") || query.Get("mode") == "fail",
 		block:       exists("b") || exists("block") || query.Get("mode") == "block",
 		interactive: exists("i") || exists("interactive"),
+		username:    parseUsername(r),
 	}
+}
+
+func parseUsername(r *http.Request) string {
+	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	if len(auth) != 2 || auth[0] != "Basic" {
+		return ""
+	}
+	payload, _ := base64.StdEncoding.DecodeString(auth[1])
+	pair := strings.SplitN(string(payload), ":", 2)
+	return pair[0]
 }
 
 // handler that generates a new key and gives the user information on it
@@ -122,11 +135,16 @@ func (s *server) stats(w http.ResponseWriter, r *http.Request) {
 
 // receive data from any senders
 func (s *server) recv(w http.ResponseWriter, r *http.Request, p *params) {
+	// this is required so that data is streamed back to the client
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	// this is used to flush output back to the client as it is received
 	flusher, _ := w.(http.Flusher)
 
 	// store the active streams by key so that data can be sent by another request
-	receiver := MakeReceiver(w, flusher, p.id, p.interactive)
+	receiver := MakeReceiver(w, flusher, p.id, p.interactive, p.username)
 	pipe := s.allPipes.AddReceiver(p.key, receiver)
 	defer s.allPipes.RemoveReceiver(p.key, receiver)
 
@@ -134,17 +152,6 @@ func (s *server) recv(w http.ResponseWriter, r *http.Request, p *params) {
 	if p.failure && pipe.SenderCount() < 1 {
 		http.Error(w, "No senders connected", http.StatusInternalServerError)
 		return
-	}
-
-	// this is required so that data is streamed back to the client
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// in interactive mode, send a notification message
-	if p.interactive {
-		fmt.Fprintf(w, "Connection suceeded: %d other client(s)\n", pipe.ReceiverCount()-1)
-		flusher.Flush()
 	}
 
 	select {
@@ -187,7 +194,7 @@ func (s *server) send(w http.ResponseWriter, r *http.Request, p *params) {
 	body := http.MaxBytesReader(w, r.Body, maxUploadMb*1024*1024)
 
 	// copy the request body to all senders
-	sender := MakeSender(pipe, p.id)
+	sender := MakeSender(pipe, p.id, p.username)
 	go sender.Copy(body)
 
 	// The 100-continue message is sent on the first read from the Copy goroutine above

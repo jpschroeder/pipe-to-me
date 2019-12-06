@@ -11,6 +11,7 @@ type RecieveWriter interface {
 	io.WriteCloser
 	ID() int
 	Interactive() bool
+	Username() string
 }
 
 // Receiver holds the information for a single receiver
@@ -19,6 +20,7 @@ type RecieveWriter interface {
 type Receiver struct {
 	id          int
 	interactive bool
+	username    string
 	writer      io.Writer
 	flusher     http.Flusher
 	done        chan bool
@@ -32,6 +34,11 @@ func (r Receiver) ID() int {
 // Interactive returns whether or not to show connect/disconnect messages to the receiver
 func (r Receiver) Interactive() bool {
 	return r.interactive
+}
+
+// Username returns the username supplied by the receiver (or client <id> if none was supplied)
+func (r Receiver) Username() string {
+	return getUsername(r.username, r.id)
 }
 
 // Write a single received buffer to the receiver and flush it back to the client
@@ -54,12 +61,13 @@ func (r Receiver) CloseNotify() <-chan bool {
 }
 
 // MakeReceiver creates a new receiver struct
-func MakeReceiver(w io.Writer, f http.Flusher, id int, interactive bool) Receiver {
+func MakeReceiver(w io.Writer, f http.Flusher, id int, interactive bool, username string) Receiver {
 	return Receiver{
 		writer:      w,
 		flusher:     f,
 		id:          id,
 		interactive: interactive,
+		username:    username,
 		done:        make(chan bool),
 	}
 }

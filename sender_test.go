@@ -15,7 +15,7 @@ func TestSenderWrite(t *testing.T) {
 	for _, r := range receivers {
 		pipe.AddReceiver(r)
 	}
-	sender := MakeSender(pipe, 1)
+	sender := MakeSender(pipe, 1, "")
 
 	input := "test input 1"
 	count, err := sender.Write([]byte(input))
@@ -51,7 +51,7 @@ func TestSenderClose(t *testing.T) {
 	for _, r := range receivers {
 		pipe.AddReceiver(r)
 	}
-	sender := MakeSender(pipe, 1)
+	sender := MakeSender(pipe, 1, "")
 
 	sender.Write([]byte("test input"))
 	err := sender.Close()

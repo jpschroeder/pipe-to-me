@@ -1,6 +1,9 @@
 package main
 
-import "crypto/rand"
+import (
+	"crypto/rand"
+	"fmt"
+)
 
 const keyBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
@@ -26,4 +29,11 @@ func randKey(n int) []byte {
 		output[pos] = keyBytes[randomPos]
 	}
 	return output
+}
+
+func getUsername(username string, id int) string {
+	if len(username) == 0 {
+		return fmt.Sprintf("client %d", id)
+	}
+	return username
 }

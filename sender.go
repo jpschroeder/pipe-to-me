@@ -6,13 +6,19 @@ import (
 
 // Sender holds the information for a single sender
 type Sender struct {
-	id   int
-	pipe *Pipe
+	id       int
+	username string
+	pipe     *Pipe
+}
+
+// Username returns the username supplied by the sender (or client <id> if none was supplied)
+func (s Sender) Username() string {
+	return getUsername(s.username, s.id)
 }
 
 // Write the buffer to all registered receivers
 func (s Sender) Write(buffer []byte) (int, error) {
-	return s.pipe.Write(buffer, s.id, false)
+	return s.pipe.Write(buffer, s.id, false, s.Username())
 }
 
 // Close all of the registered receivers
@@ -32,9 +38,10 @@ func (s Sender) Copy(reader io.Reader) {
 }
 
 // MakeSender creates a new sender
-func MakeSender(p *Pipe, id int) Sender {
+func MakeSender(p *Pipe, id int, username string) Sender {
 	return Sender{
-		pipe: p,
-		id:   id,
+		pipe:     p,
+		id:       id,
+		username: username,
 	}
 }

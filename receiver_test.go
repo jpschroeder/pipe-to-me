@@ -16,7 +16,7 @@ func (t *TestFlusher) Flush() {
 func TestReceiverWrite(t *testing.T) {
 	var w bytes.Buffer
 	f := TestFlusher{flushCount: 0}
-	receiver := MakeReceiver(&w, &f, 0, false)
+	receiver := MakeReceiver(&w, &f, 0, false, "")
 
 	input := "test input"
 	count, err := receiver.Write([]byte(input))
@@ -41,7 +41,7 @@ func TestReceiverWrite(t *testing.T) {
 func TestReceiverClose(t *testing.T) {
 	var w bytes.Buffer
 	f := TestFlusher{flushCount: 0}
-	receiver := MakeReceiver(&w, &f, 0, false)
+	receiver := MakeReceiver(&w, &f, 0, false, "")
 
 	go func() {
 		receiver.Write([]byte("test input"))

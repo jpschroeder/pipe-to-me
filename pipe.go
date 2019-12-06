@@ -19,14 +19,15 @@ type Pipe struct {
 // AddReceiver adds a new receiver listening on the pipe
 func (p *Pipe) AddReceiver(w RecieveWriter) {
 	p.receivers[w] = true
-	p.Write([]byte(fmt.Sprintf("Client %d connected\n", w.ID())), w.ID(), true)
+
+	p.Write([]byte("connected\n"), w.ID(), true, w.Username())
 	p.ReceiverAddedNotify()
 }
 
 // RemoveReceiver removes a previously added receiver
 func (p *Pipe) RemoveReceiver(w RecieveWriter) {
 	delete(p.receivers, w)
-	p.Write([]byte(fmt.Sprintf("Client %d disconnected\n", w.ID())), w.ID(), true)
+	p.Write([]byte("disconnected\n"), w.ID(), true, w.Username())
 }
 
 // ReceiverCount returns the number of receivers on the pipe
@@ -78,14 +79,24 @@ func (p Pipe) BytesSent() int {
 }
 
 // Write the buffer to all registered receivers
-func (p *Pipe) Write(buffer []byte, senderID int, interactive bool) (int, error) {
+func (p *Pipe) Write(buffer []byte, senderID int, interactive bool, username string) (int, error) {
+
+	// if the sender has supplied a username, prepend it to the buffer
+	uName := []byte(username + ": ")
+	uBuffer := append(uName, buffer...)
+
 	for receiver := range p.receivers {
-		// don't send the message to yourself
-		if receiver.ID() == senderID {
+		// if this is an interactive message and the receiver isn't an interactive receiver - skip
+		if interactive && !receiver.Interactive() {
 			continue
 		}
-		// if this is an interactive message and the receiver isn't an interactive receiver
-		if interactive && !receiver.Interactive() {
+		// if I am the sender and the receiver only send connect/disconnect messages
+		if receiver.ID() == senderID && !interactive {
+			continue
+		}
+		// if the receiver is interactive, send the message with the prepended username
+		if receiver.Interactive() && len(username) > 0 {
+			receiver.Write(uBuffer)
 			continue
 		}
 		// errors from one of the receivers shouldn't affect any others

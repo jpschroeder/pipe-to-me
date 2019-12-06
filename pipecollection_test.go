@@ -8,7 +8,7 @@ func TestPipeCollectionWrite(t *testing.T) {
 	pipes.AddReceiver("key", receiver)
 
 	pipe := pipes.AddSender("key")
-	sender := MakeSender(pipe, 1)
+	sender := MakeSender(pipe, 1, "")
 	input := "test input"
 	sender.Write([]byte(input))
 
@@ -22,12 +22,12 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 	pipes := MakePipeCollection()
 
 	p1 := pipes.AddSender("key1")
-	s1 := MakeSender(p1, 1)
+	s1 := MakeSender(p1, 1, "")
 	r1 := &TestReceiver{}
 	pipes.AddReceiver("key1", r1)
 
 	p2 := pipes.AddSender("key1")
-	s2 := MakeSender(p2, 1)
+	s2 := MakeSender(p2, 1, "")
 	r2 := &TestReceiver{}
 	pipes.AddReceiver("key1", r2)
 
