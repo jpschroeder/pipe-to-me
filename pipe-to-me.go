@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"regexp"
-	"strings"
 	"text/template"
 	"time"
 )
@@ -90,23 +88,17 @@ func parseParams(r *http.Request) *params {
 	exists := func(p string) bool {
 		return len(query.Get(p)) > 0
 	}
+	username, _, _ := r.BasicAuth()
+	if len(username) == 0 {
+		username = query.Get("user")
+	}
 	return &params{
 		key:         key,
 		failure:     exists("f") || exists("fail") || query.Get("mode") == "fail",
 		block:       exists("b") || exists("block") || query.Get("mode") == "block",
 		interactive: exists("i") || exists("interactive"),
-		username:    parseUsername(r),
+		username:    username,
 	}
-}
-
-func parseUsername(r *http.Request) string {
-	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-	if len(auth) != 2 || auth[0] != "Basic" {
-		return ""
-	}
-	payload, _ := base64.StdEncoding.DecodeString(auth[1])
-	pair := strings.SplitN(string(payload), ":", 2)
-	return pair[0]
 }
 
 // handler that generates a new key and gives the user information on it
