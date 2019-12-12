@@ -19,15 +19,22 @@ type Pipe struct {
 // AddReceiver adds a new receiver listening on the pipe
 func (p *Pipe) AddReceiver(w RecieveWriter) {
 	p.receivers[w] = true
-
-	p.Write([]byte("connected\n"), w.ID(), true, w.Username())
+	p.Write(Message{
+		fromID: w.ID(),
+		fromUser: w.Username(),
+		buffer: []byte("connected\n"),
+		system: true })
 	p.ReceiverAddedNotify()
 }
 
 // RemoveReceiver removes a previously added receiver
 func (p *Pipe) RemoveReceiver(w RecieveWriter) {
 	delete(p.receivers, w)
-	p.Write([]byte("disconnected\n"), w.ID(), true, w.Username())
+	p.Write(Message{
+		fromID: w.ID(),
+		fromUser: w.Username(),
+		buffer: []byte("disconnected\n"),
+		system: true })
 }
 
 // ReceiverCount returns the number of receivers on the pipe
@@ -79,35 +86,13 @@ func (p Pipe) BytesSent() int {
 }
 
 // Write the buffer to all registered receivers
-func (p *Pipe) Write(buffer []byte, senderID int, interactive bool, username string) (int, error) {
-
-	// if the sender has supplied a username, prepend it to the buffer
-	uName := []byte(username + ": ")
-	uBuffer := append(uName, buffer...)
-
+func (p *Pipe) Write(m Message) (int, error) {
 	for receiver := range p.receivers {
-		// if this is an interactive message and the receiver isn't an interactive receiver - skip
-		if interactive && !receiver.Interactive() {
-			continue
-		}
-		// if I am the sender and the receiver only send connect/disconnect messages
-		if receiver.ID() == senderID && !interactive {
-			continue
-		}
-		// if the receiver is interactive, send the message with the prepended username
-		if receiver.Interactive() && len(username) > 0 {
-			receiver.Write(uBuffer)
-			continue
-		}
-		// errors from one of the receivers shouldn't affect any others
-		receiver.Write(buffer)
+		receiver.Write(m.Format(receiver))
 	}
-	bytes := len(buffer)
-	if !interactive {
-		// don't track interactive messages against the stats
-		p.bytes += bytes
-		p.written.WriteCompleted(bytes)
-	}
+	bytes := len(m.buffer)
+	p.bytes += bytes
+	p.written.WriteCompleted(bytes)
 	return bytes, nil
 }
 

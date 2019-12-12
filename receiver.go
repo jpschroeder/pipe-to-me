@@ -43,6 +43,9 @@ func (r Receiver) Username() string {
 
 // Write a single received buffer to the receiver and flush it back to the client
 func (r Receiver) Write(p []byte) (n int, err error) {
+	if len(p) < 1 {
+		return
+	}
 	n, err = r.writer.Write(p)
 	r.flusher.Flush()
 	return

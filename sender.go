@@ -18,7 +18,10 @@ func (s Sender) Username() string {
 
 // Write the buffer to all registered receivers
 func (s Sender) Write(buffer []byte) (int, error) {
-	return s.pipe.Write(buffer, s.id, false, s.Username())
+	return s.pipe.Write(Message{
+		fromID:   s.id,
+		fromUser: s.Username(),
+		buffer:   buffer})
 }
 
 // Close all of the registered receivers
