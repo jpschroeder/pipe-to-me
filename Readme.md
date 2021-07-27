@@ -10,39 +10,36 @@ Stream data over http using curl.  Hosted at [pipeto.me](https://pipeto.me/)
 ![](demo.gif)
 
 ```
+pipeto.me(1)                     PIPE TO ME                         pipeto.me(1)
+
 NAME
     pipeto.me: streaming data over http
 
 SYNOPSIS
-    Randomly generated pipe address:    https://pipeto.me/<key>
+    Randomly generated pipe address:                  https://pipeto.me/<key>
 
 EXAMPLES
+    Pipe example:
+
+    (chrome/firefox): https://pipeto.me/<key>
+    (terminal2)$ echo hello world | curl -T- https://pipeto.me/<key>
+
     Input example:
 
     (chrome/firefox): https://pipeto.me/<key>
     (terminal)$ curl -T- https://pipeto.me/<key>
                 hello world<enter>
 
-    Pipe example:
-
-    (terminal1)$ curl https://pipeto.me/<key>
-    (terminal2)$ echo hello world | curl -T- https://pipeto.me/<key>
-
-    Chat example(curl>=7.68):
-
-    (terminal1)$ curl -T. https://pipeto.me/<key>
-    (terminal2)$ curl -T. https://pipeto.me/<key>
-                 hello world<enter>
-
     File transfer example:
 
     (terminal1)$ curl https://pipeto.me/<key> > output.txt
     (terminal2)$ cat input.txt | curl -T- https://pipeto.me/<key>
 
-    Watch log example:
+    Chat example(curl>=7.68):
 
-    (chrome/firefox): https://pipeto.me/<key>
-    (terminal)$ tail -f logfile | curl -T- https://pipeto.me/<key>
+    (terminal1)$ curl -T. -u user1: https://pipeto.me/<key>?mode=interactive
+    (terminal2)$ curl -T. -u user2: https://pipeto.me/<key>?mode=interactive
+                 hello world<enter>
 
 DESCRIPTION
     Data is not buffered or stored in any way.
@@ -68,6 +65,12 @@ DESCRIPTION
 
     $ curl -T- --expect100-timeout 86400 https://pipeto.me/<key>?mode=block
     In this mode, a send request will wait to send data until a receiver connects.
+
+    Interactive Mode:
+
+    $ curl -T. -u <username>: https://pipeto.me/<key>?mode=interactive
+    In this mode the system will append the username to messages.
+    The system will also send connected and disconnected notifications.
 
 SEE ALSO
     Demo: https://raw.githubusercontent.com/jpschroeder/pipe-to-me/master/demo.gif

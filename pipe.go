@@ -20,10 +20,10 @@ type Pipe struct {
 func (p *Pipe) AddReceiver(w RecieveWriter) {
 	p.receivers[w] = true
 	p.Write(Message{
-		fromID: w.ID(),
+		fromID:   w.ID(),
 		fromUser: w.Username(),
-		buffer: []byte("connected\n"),
-		system: true })
+		buffer:   []byte("connected\n"),
+		system:   true})
 	p.ReceiverAddedNotify()
 }
 
@@ -31,10 +31,10 @@ func (p *Pipe) AddReceiver(w RecieveWriter) {
 func (p *Pipe) RemoveReceiver(w RecieveWriter) {
 	delete(p.receivers, w)
 	p.Write(Message{
-		fromID: w.ID(),
+		fromID:   w.ID(),
 		fromUser: w.Username(),
-		buffer: []byte("disconnected\n"),
-		system: true })
+		buffer:   []byte("disconnected\n"),
+		system:   true})
 }
 
 // ReceiverCount returns the number of receivers on the pipe
@@ -91,8 +91,10 @@ func (p *Pipe) Write(m Message) (int, error) {
 		receiver.Write(m.Format(receiver))
 	}
 	bytes := len(m.buffer)
-	p.bytes += bytes
-	p.written.WriteCompleted(bytes)
+	if !m.system {
+		p.bytes += bytes
+		p.written.WriteCompleted(bytes)
+	}
 	return bytes, nil
 }
 

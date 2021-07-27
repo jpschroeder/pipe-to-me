@@ -14,32 +14,27 @@ SYNOPSIS
     Randomly generated pipe address:                  {{ .URL }}
 
 EXAMPLES
+    Pipe example:
+
+    (chrome/firefox): {{ .URL }}
+    (terminal2)$ echo hello world | curl -T- {{ .URL }}
+
     Input example:
 
     (chrome/firefox): {{ .URL }}
     (terminal)$ curl -T- {{ .URL }}
                 hello world<enter>
 
-    Pipe example:
-
-    (terminal1)$ curl {{ .URL }}
-    (terminal2)$ echo hello world | curl -T- {{ .URL }}
-
-    Chat example(curl>=7.68):
-
-    (terminal1)$ curl -T. {{ .URL }}
-    (terminal2)$ curl -T. {{ .URL }}
-                 hello world<enter>
-
     File transfer example:
 
     (terminal1)$ curl {{ .URL }} > output.txt
     (terminal2)$ cat input.txt | curl -T- {{ .URL }}
 
-    Watch log example:
+    Chat example(curl>=7.68):
 
-    (chrome/firefox): {{ .URL }}
-    (terminal)$ tail -f logfile | curl -T- {{ .URL }}
+    (terminal1)$ curl -T. -u user1: {{ .URL }}?mode=interactive
+    (terminal2)$ curl -T. -u user2: {{ .URL }}?mode=interactive
+                 hello world<enter>
 
 DESCRIPTION
     Data is not buffered or stored in any way.
@@ -65,6 +60,12 @@ DESCRIPTION
 
     $ curl -T- --expect100-timeout 86400 {{ .URL }}?mode=block
     In this mode, a send request will wait to send data until a receiver connects.
+
+    Interactive Mode:
+
+    $ curl -T. -u <username>: {{ .URL }}?mode=interactive
+    In this mode the system will append the username to messages.
+    The system will also send connected and disconnected notifications.
 
 SEE ALSO
     Demo: https://raw.githubusercontent.com/jpschroeder/pipe-to-me/master/demo.gif

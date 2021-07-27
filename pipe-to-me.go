@@ -96,7 +96,7 @@ func parseParams(r *http.Request) *params {
 		key:         key,
 		failure:     exists("f") || exists("fail") || query.Get("mode") == "fail",
 		block:       exists("b") || exists("block") || query.Get("mode") == "block",
-		interactive: exists("i") || exists("interactive"),
+		interactive: exists("i") || exists("interactive") || query.Get("mode") == "interactive",
 		username:    username,
 	}
 }
